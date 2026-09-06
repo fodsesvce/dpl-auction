@@ -1,0 +1,978 @@
+.team-owner-page {
+  min-height: 100vh;
+  width: 100%;
+  background:
+    radial-gradient(
+      circle at 15% 0%,
+      rgba(255, 255, 255, 0.045),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at 90% 20%,
+      rgba(255, 255, 255, 0.025),
+      transparent 28%
+    ),
+    #07090d;
+  color: #f4f5f7;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  overflow-x: hidden;
+}
+
+.team-owner-page * {
+  box-sizing: border-box;
+}
+
+.team-owner-header {
+  min-height: 78px;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(7, 9, 13, 0.94);
+  backdrop-filter: blur(18px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.team-owner-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.team-owner-dpl-logo {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+}
+
+.team-owner-brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.team-owner-brand-copy span {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.team-owner-brand-copy strong {
+  font-size: 13px;
+  letter-spacing: 0.1em;
+}
+
+.team-owner-header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.team-owner-live-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.team-owner-live-pill.live {
+  color: #fff;
+}
+
+.team-owner-live-pill.sold {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.team-owner-live-pill.waiting {
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.team-owner-live-dot,
+.team-owner-footer-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 12px currentColor;
+}
+
+.team-owner-account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.team-owner-account-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.team-owner-account-text strong {
+  font-size: 12px;
+}
+
+.team-owner-account-text span {
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.team-owner-logout {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.72);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.team-owner-logout:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+}
+
+.team-owner-main {
+  width: min(1500px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 28px 0 40px;
+}
+
+.team-owner-alert {
+  width: min(1500px, calc(100% - 48px));
+  margin: 16px auto 0;
+  padding: 11px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 12px;
+}
+
+.team-owner-hero {
+  min-height: 142px;
+  padding: 24px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(
+      120deg,
+      rgba(255, 255, 255, 0.055),
+      rgba(255, 255, 255, 0.018)
+    );
+}
+
+.team-owner-hero-team {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.team-owner-logo-wrap {
+  width: 82px;
+  height: 82px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.team-owner-team-logo {
+  width: 68px;
+  height: 68px;
+  object-fit: contain;
+}
+
+.team-owner-logo-fallback {
+  font-size: 19px;
+  font-weight: 950;
+  letter-spacing: -0.04em;
+}
+
+.team-owner-eyebrow,
+.team-owner-section-heading > div > span {
+  display: block;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+
+.team-owner-hero h1 {
+  margin: 5px 0 2px;
+  font-size: clamp(28px, 4vw, 42px);
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.team-owner-hero p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 11px;
+}
+
+.team-owner-secure-badge {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.team-owner-secure-badge svg {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.team-owner-secure-badge div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.team-owner-secure-badge strong {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.team-owner-secure-badge span {
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 9px;
+}
+
+.team-owner-stats {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.team-owner-stat-card {
+  min-height: 94px;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.team-owner-stat-card.purse {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.075),
+      rgba(255, 255, 255, 0.025)
+    );
+}
+
+.team-owner-stat-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.team-owner-stat-card > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.team-owner-stat-card span {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.13em;
+}
+
+.team-owner-stat-card strong {
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
+
+.team-owner-stat-card small {
+  margin-left: 2px;
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 12px;
+}
+
+.team-owner-content {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.55fr)
+    minmax(330px, 0.8fr);
+  gap: 18px;
+}
+
+.team-owner-auction-column,
+.team-owner-squad-column {
+  min-width: 0;
+}
+
+.team-owner-section-heading {
+  min-height: 48px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.team-owner-section-heading h2 {
+  margin: 4px 0 0;
+  font-size: 19px;
+  letter-spacing: -0.025em;
+}
+
+.team-owner-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+}
+
+.team-owner-status-badge span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.team-owner-status-badge.live {
+  color: #fff;
+}
+
+.team-owner-status-badge.sold {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.team-owner-status-badge.waiting {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.team-owner-current-player {
+  min-height: 335px;
+  display: grid;
+  grid-template-columns:
+    minmax(260px, 0.85fr)
+    minmax(0, 1.15fr);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(
+      circle at 15% 35%,
+      rgba(255, 255, 255, 0.05),
+      transparent 35%
+    ),
+    rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.team-owner-player-visual {
+  min-height: 335px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.team-owner-player-visual img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.team-owner-player-placeholder {
+  width: 100%;
+  height: 100%;
+  min-height: 335px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.17);
+}
+
+.team-owner-player-placeholder span {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+
+.team-owner-player-number {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  padding: 7px 9px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+.team-owner-player-details {
+  padding: 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.team-owner-player-kicker {
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+
+.team-owner-player-details h3 {
+  margin: 8px 0 13px;
+  font-size: clamp(30px, 4vw, 50px);
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+}
+
+.team-owner-player-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.team-owner-player-meta span {
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.025);
+  color: rgba(255, 255, 255, 0.54);
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.09em;
+}
+
+.team-owner-base-price {
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.team-owner-base-price span {
+  color: rgba(255, 255, 255, 0.36);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.team-owner-base-price strong {
+  font-size: 20px;
+}
+
+.team-owner-bid-panel {
+  min-height: 104px;
+  margin-top: 12px;
+  padding: 17px 20px;
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr auto;
+  align-items: center;
+  gap: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.team-owner-bid-main,
+.team-owner-bidder {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.team-owner-bid-main > span,
+.team-owner-bidder > span,
+.team-owner-timer span {
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.team-owner-bid-main strong {
+  font-size: 28px;
+  letter-spacing: -0.04em;
+}
+
+.team-owner-bidder strong {
+  font-size: 15px;
+}
+
+.team-owner-bidder strong.mine {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.team-owner-bidder small {
+  margin-top: 1px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.team-owner-bid-divider {
+  width: 1px;
+  height: 42px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.team-owner-timer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-owner-timer div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.team-owner-timer strong {
+  font-size: 18px;
+}
+
+.team-owner-notice {
+  margin-top: 10px;
+  padding: 11px 13px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.team-owner-squad-count {
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.team-owner-squad-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.team-owner-empty-squad {
+  min-height: 290px;
+  padding: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.team-owner-empty-squad strong {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 12px;
+}
+
+.team-owner-empty-squad span {
+  max-width: 240px;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.team-owner-squad-list {
+  padding: 6px;
+}
+
+.team-owner-squad-player {
+  min-height: 72px;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.team-owner-squad-player:last-child {
+  border-bottom: 0;
+}
+
+.team-owner-squad-avatar {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.team-owner-squad-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.team-owner-squad-player-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.team-owner-squad-player-info strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.team-owner-squad-player-info span {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.team-owner-squad-price {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.team-owner-squad-price span {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.team-owner-squad-price strong {
+  font-size: 12px;
+}
+
+.team-owner-open-slots {
+  min-height: 55px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.team-owner-open-slots span {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.team-owner-open-slots strong {
+  font-size: 18px;
+}
+
+.team-owner-budget-card {
+  margin-top: 12px;
+  padding: 17px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.team-owner-budget-heading,
+.team-owner-budget-values {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.team-owner-budget-heading span {
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+}
+
+.team-owner-budget-heading strong {
+  font-size: 12px;
+}
+
+.team-owner-budget-track {
+  height: 5px;
+  margin: 12px 0 9px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.team-owner-budget-fill {
+  height: 100%;
+  min-width: 0;
+  background: #f2f3f5;
+  transition: width 300ms ease;
+}
+
+.team-owner-budget-values span {
+  color: rgba(255, 255, 255, 0.32);
+  font-size: 8px;
+}
+
+.team-owner-footer {
+  width: min(1500px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 15px 0 24px;
+  display: flex;
+  justify-content: space-between;
+  color: rgba(255, 255, 255, 0.27);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.team-owner-footer > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.team-owner-loading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.team-owner-loading img {
+  width: 70px;
+  height: 70px;
+  object-fit: contain;
+  margin-bottom: 10px;
+}
+
+.team-owner-loading-pulse {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.team-owner-loading > span {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 10px;
+}
+
+@media (max-width: 1050px) {
+  .team-owner-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .team-owner-content {
+    grid-template-columns: 1fr;
+  }
+
+  .team-owner-current-player {
+    grid-template-columns: 0.75fr 1.25fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .team-owner-header {
+    min-height: 68px;
+    padding: 0 16px;
+  }
+
+  .team-owner-brand-copy strong {
+    font-size: 11px;
+  }
+
+  .team-owner-header-right {
+    gap: 8px;
+  }
+
+  .team-owner-live-pill {
+    display: none;
+  }
+
+  .team-owner-account-text {
+    display: none;
+  }
+
+  .team-owner-main {
+    width: min(100% - 24px, 1500px);
+    padding-top: 16px;
+  }
+
+  .team-owner-alert,
+  .team-owner-footer {
+    width: calc(100% - 24px);
+  }
+
+  .team-owner-hero {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 18px;
+  }
+
+  .team-owner-hero-team {
+    width: 100%;
+  }
+
+  .team-owner-logo-wrap {
+    width: 64px;
+    height: 64px;
+  }
+
+  .team-owner-team-logo {
+    width: 53px;
+    height: 53px;
+  }
+
+  .team-owner-secure-badge {
+    width: 100%;
+  }
+
+  .team-owner-stats {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .team-owner-stat-card {
+    min-height: 84px;
+    padding: 13px;
+    gap: 10px;
+  }
+
+  .team-owner-stat-icon {
+    width: 35px;
+    height: 35px;
+  }
+
+  .team-owner-stat-card strong {
+    font-size: 17px;
+  }
+
+  .team-owner-content {
+    margin-top: 18px;
+  }
+
+  .team-owner-current-player {
+    grid-template-columns: 1fr;
+  }
+
+  .team-owner-player-visual {
+    min-height: 230px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .team-owner-player-placeholder {
+    min-height: 230px;
+  }
+
+  .team-owner-player-details {
+    padding: 23px;
+  }
+
+  .team-owner-player-details h3 {
+    font-size: 34px;
+  }
+
+  .team-owner-bid-panel {
+    grid-template-columns: 1fr 1px 1fr;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .team-owner-timer {
+    display: none;
+  }
+
+  .team-owner-footer {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 450px) {
+  .team-owner-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .team-owner-hero h1 {
+    font-size: 30px;
+  }
+
+  .team-owner-bid-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .team-owner-bid-divider {
+    width: 100%;
+    height: 1px;
+  }
+
+  .team-owner-section-heading {
+    align-items: flex-start;
+  }
+
+  .team-owner-status-badge {
+    display: none;
+  }
+}

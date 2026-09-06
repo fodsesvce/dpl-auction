@@ -1,0 +1,93 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --dpl-black: #03060b;
+  --dpl-dark: #07101c;
+  --dpl-panel: #0b1625;
+
+  --dpl-blue: #087cff;
+  --dpl-blue-light: #43a5ff;
+
+  --dpl-orange: #ff7a00;
+  --dpl-orange-light: #ffad42;
+
+  --dpl-white: #f5f8ff;
+  --dpl-muted: #8998ad;
+
+  --dpl-border: rgba(255, 255, 255, 0.08);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  background: var(--dpl-black);
+  color: var(--dpl-white);
+  font-family: "Inter", sans-serif;
+}
+
+button,
+input {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+
+
+
+.dpl-auth-loading {
+  min-height: 100vh;
+
+  display: grid;
+  place-items: center;
+
+  background: #05070b;
+
+  color: #f5f7fb;
+
+  font-family:
+    Inter,
+    sans-serif;
+}
+
+
+.dpl-auth-loading-card {
+  display: grid;
+
+  justify-items: center;
+
+  gap: 10px;
+
+  color: #778295;
+
+  font-size: 10px;
+
+  font-weight: 800;
+
+  letter-spacing: .12em;
+}
+
+
+.dpl-auth-loading-card img {
+  width: 58px;
+  height: 58px;
+
+  object-fit: contain;
+}
+
+
+.dpl-auth-loading-card strong {
+  color: #f4f6fa;
+}
