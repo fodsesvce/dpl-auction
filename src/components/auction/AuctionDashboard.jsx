@@ -1,9 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { supabase } from "../../lib/supabase";
 import "./AuctionDashboard.css";
 import SoldOverlay from "../SoldOverlay";
 
-function AuctionDashboard({ readOnly = false, currentUser = null, onLogout }) {
+function AuctionDashboard({
+  readOnly = false,
+  currentUser = null,
+  onLogout,
+}) {
   /* =========================================================
      CONSTANTS
   ========================================================= */
@@ -12,7 +21,6 @@ function AuctionDashboard({ readOnly = false, currentUser = null, onLogout }) {
   const STARTING_PURSE = 10000;
   const MAX_SQUAD_SIZE = 5;
 
-  // SOLD SCREEN DISPLAY TIME
   const SOLD_SCREEN_DURATION = 20000;
 
   /* =========================================================
@@ -23,31 +31,67 @@ function AuctionDashboard({ readOnly = false, currentUser = null, onLogout }) {
 
   const [currentBid, setCurrentBid] = useState(2500);
 
-  const [highestBidder, setHighestBidder] = useState("TEAM 03");
+  const [highestBidder, setHighestBidder] =
+    useState("TEAM 03");
 
   const [bidFlash, setBidFlash] = useState(false);
 
-  const [bidTimeRemaining, setBidTimeRemaining] = useState(120);
-  const [timerStartedAt, setTimerStartedAt] = useState(null);
-  const [syncReady, setSyncReady] = useState(false);
+  const [bidTimeRemaining, setBidTimeRemaining] =
+    useState(120);
+
+  const [timerStartedAt, setTimerStartedAt] =
+    useState(null);
+
+  const [syncReady, setSyncReady] =
+    useState(false);
 
   const [soldTeam, setSoldTeam] = useState(null);
 
-  const [soldOverlayOpen, setSoldOverlayOpen] = useState(false);
+  const [soldOverlayOpen, setSoldOverlayOpen] =
+    useState(false);
 
-  const [soldPlayers, setSoldPlayers] = useState([]);
+  const [soldPlayers, setSoldPlayers] =
+    useState([]);
+
+  /* =========================================================
+     REALTIME SYNC REFS
+
+     These refs prevent the operator's own Supabase update
+     from coming back through Realtime and causing another
+     unnecessary state -> database -> state cycle.
+  ========================================================= */
+
+  const persistTimerRef = useRef(null);
+
+  const pendingPersistRef = useRef(null);
+
+  const persistInFlightRef = useRef(false);
+
+  const lastPersistedSnapshotRef = useRef(null);
+
+  const lastRemoteSnapshotRef = useRef(null);
+
+  const lastLocalUpdatedAtMsRef = useRef(0);
+
+  const lastLocalSnapshotRef = useRef(null);
+
+  const realtimeChannelRef = useRef(null);
 
   /* =========================================================
      MANUAL BID STATE
   ========================================================= */
 
-  const [manualBidOpen, setManualBidOpen] = useState(false);
+  const [manualBidOpen, setManualBidOpen] =
+    useState(false);
 
-  const [manualTeam, setManualTeam] = useState("");
+  const [manualTeam, setManualTeam] =
+    useState("");
 
-  const [manualBidAmount, setManualBidAmount] = useState("");
+  const [manualBidAmount, setManualBidAmount] =
+    useState("");
 
-  const [manualError, setManualError] = useState("");
+  const [manualError, setManualError] =
+    useState("");
 
   /* =========================================================
      TEAM DATA
@@ -198,20 +242,24 @@ function AuctionDashboard({ readOnly = false, currentUser = null, onLogout }) {
     },
   ];
 
-  const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
+  const [currentPlayerIndex, setCurrentPlayerIndex] =
+    useState(0);
 
-  const currentPlayer = playerQueue[currentPlayerIndex];
+  const currentPlayer =
+    playerQueue[currentPlayerIndex];
 
   /* =========================================================
      KEPT PLAYERS
   ========================================================= */
 
-  const [keptPlayersOpen, setKeptPlayersOpen] = useState(false);
+  const [keptPlayersOpen, setKeptPlayersOpen] =
+    useState(false);
 
   const [selectedKeptPlayer, setSelectedKeptPlayer] =
     useState(null);
 
-  const [playerSearch, setPlayerSearch] = useState("");
+  const [playerSearch, setPlayerSearch] =
+    useState("");
 
   const clubMembers = [
     {
@@ -293,44 +341,50 @@ function AuctionDashboard({ readOnly = false, currentUser = null, onLogout }) {
      BID HISTORY
   ========================================================= */
 
-  const [bidHistory, setBidHistory] = useState([
-    {
-      id: 1,
-      team: "TEAM 03",
-      teamName: "TOWNSVILLE TECH TITANS",
-      amount: 2500,
-      timestamp: Date.now(),
-      type: "QUICK",
-    },
-  ]);
+  const [bidHistory, setBidHistory] =
+    useState([
+      {
+        id: 1,
+        team: "TEAM 03",
+        teamName: "TOWNSVILLE TECH TITANS",
+        amount: 2500,
+        timestamp: Date.now(),
+        type: "QUICK",
+      },
+    ]);
 
   /* =========================================================
      LIVE NEWS TICKER
   ========================================================= */
 
-  const [tickerMessages, setTickerMessages] = useState([
-    {
-      id: 1,
-      type: "start",
-      text: "AUCTION BEGINS • ROUND 01 • PLAYER AUCTION 2026",
-    },
-  ]);
+  const [tickerMessages, setTickerMessages] =
+    useState([
+      {
+        id: 1,
+        type: "start",
+        text: "AUCTION BEGINS • ROUND 01 • PLAYER AUCTION 2026",
+      },
+    ]);
 
-  const addTickerMessage = (message, type = "bid") => {
-    setTickerMessages((previousMessages) =>
-      [
-        {
-          id: Date.now() + Math.random(),
-          type,
-          text: message,
-        },
-        ...previousMessages,
-      ].slice(0, 12)
+  const addTickerMessage = (
+    message,
+    type = "bid"
+  ) => {
+    setTickerMessages(
+      (previousMessages) =>
+        [
+          {
+            id: Date.now() + Math.random(),
+            type,
+            text: message,
+          },
+          ...previousMessages,
+        ].slice(0, 12)
     );
   };
 
   /* =========================================================
-     REAL-TIME AUCTION STATE
+     AUCTION SNAPSHOT
   ========================================================= */
 
   const auctionSnapshot = useMemo(
@@ -364,61 +418,237 @@ function AuctionDashboard({ readOnly = false, currentUser = null, onLogout }) {
     ]
   );
 
-  const hydrateFromRemote = (remoteState) => {
-    if (!remoteState) return;
+  /* =========================================================
+     SNAPSHOT SERIALIZER
 
-    setAuctionStatus(remoteState.auctionStatus ?? "LIVE");
-    setCurrentBid(remoteState.currentBid ?? 500);
-    setHighestBidder(remoteState.highestBidder ?? null);
-    setSoldTeam(remoteState.soldTeam ?? null);
-    setSoldOverlayOpen(Boolean(remoteState.soldOverlayOpen));
-    setSoldPlayers(Array.isArray(remoteState.soldPlayers) ? remoteState.soldPlayers : []);
-    setTeams(Array.isArray(remoteState.teams) ? remoteState.teams : []);
-    setCurrentPlayerIndex(Number.isInteger(remoteState.currentPlayerIndex) ? remoteState.currentPlayerIndex : 0);
-    setBidHistory(Array.isArray(remoteState.bidHistory) ? remoteState.bidHistory : []);
-    setTickerMessages(
-      Array.isArray(remoteState.tickerMessages) && remoteState.tickerMessages.length
-        ? remoteState.tickerMessages
-        : [{ id: 1, type: "start", text: "AUCTION BEGINS • ROUND 01 • PLAYER AUCTION 2026" }]
+     JSON.stringify gives us a stable representation of the
+     auction state so we can detect our own realtime echo.
+  ========================================================= */
+
+  const serializeSnapshot = (snapshot) =>
+    JSON.stringify(snapshot);
+
+  /* =========================================================
+     HYDRATE FROM REMOTE
+
+     IMPORTANT:
+     This function only updates local React state.
+     It does NOT write anything back to Supabase.
+  ========================================================= */
+
+  const hydrateFromRemote = (remoteState) => {
+    if (!remoteState) {
+      return;
+    }
+
+    lastRemoteSnapshotRef.current =
+      serializeSnapshot(remoteState);
+
+    setAuctionStatus(
+      remoteState.auctionStatus ?? "LIVE"
     );
 
-    const remoteTimerStartedAt = remoteState.timerStartedAt ?? null;
-    setTimerStartedAt(remoteTimerStartedAt);
+    setCurrentBid(
+      remoteState.currentBid ?? 500
+    );
 
-    if (remoteState.auctionStatus === "LIVE" && remoteTimerStartedAt) {
+    setHighestBidder(
+      remoteState.highestBidder ?? null
+    );
+
+    setSoldTeam(
+      remoteState.soldTeam ?? null
+    );
+
+    setSoldOverlayOpen(
+      Boolean(remoteState.soldOverlayOpen)
+    );
+
+    setSoldPlayers(
+      Array.isArray(remoteState.soldPlayers)
+        ? remoteState.soldPlayers
+        : []
+    );
+
+    setTeams(
+      Array.isArray(remoteState.teams)
+        ? remoteState.teams.map((team) => {
+            const teamAssetId = String(
+              team.id ?? ""
+            )
+              .trim()
+              .replace(/^TEAM\s+/i, "team-")
+              .toLowerCase();
+
+            return {
+              ...team,
+              logo:
+                team.logo ||
+                `/assets/teams/${teamAssetId}.png`,
+              owner:
+                team.owner ||
+                `/assets/owners/${teamAssetId}.webp`,
+            };
+          })
+        : []
+    );
+
+    setCurrentPlayerIndex(
+      Number.isInteger(
+        remoteState.currentPlayerIndex
+      )
+        ? remoteState.currentPlayerIndex
+        : 0
+    );
+
+    setBidHistory(
+      Array.isArray(remoteState.bidHistory)
+        ? remoteState.bidHistory
+        : []
+    );
+
+    setTickerMessages(
+      Array.isArray(remoteState.tickerMessages) &&
+        remoteState.tickerMessages.length
+        ? remoteState.tickerMessages
+        : [
+            {
+              id: 1,
+              type: "start",
+              text: "AUCTION BEGINS • ROUND 01 • PLAYER AUCTION 2026",
+            },
+          ]
+    );
+
+    const remoteTimerStartedAt =
+      remoteState.timerStartedAt ?? null;
+
+    setTimerStartedAt(
+      remoteTimerStartedAt
+    );
+
+    if (
+      remoteState.auctionStatus === "LIVE" &&
+      remoteTimerStartedAt
+    ) {
       setBidTimeRemaining(
         Math.max(
           0,
-          120 - Math.floor((Date.now() - remoteTimerStartedAt) / 1000)
+          120 -
+            Math.floor(
+              (Date.now() -
+                remoteTimerStartedAt) /
+                1000
+            )
         )
       );
     } else {
-      setBidTimeRemaining(Number(remoteState.bidTimeRemaining ?? 120));
+      setBidTimeRemaining(
+        Number(
+          remoteState.bidTimeRemaining ?? 120
+        )
+      );
     }
   };
+
+  /* =========================================================
+     INITIALIZE REALTIME
+  ========================================================= */
 
   useEffect(() => {
     let mounted = true;
 
-    const initializeRealtime = async () => {
-      const { data, error } = await supabase
-        .from("auction_state")
-        .select("state")
-        .eq("id", 1)
-        .maybeSingle();
+    const applyRealtimeState = (payload) => {
+      if (!mounted || !payload.new?.state) {
+        return;
+      }
 
-      if (!mounted) return;
+      const remoteState = payload.new.state;
+      const remoteSnapshot =
+        serializeSnapshot(remoteState);
+      const remoteUpdatedAt =
+        payload.new.updated_at ?? null;
+      const remoteUpdatedAtMs = remoteUpdatedAt
+        ? Date.parse(remoteUpdatedAt)
+        : 0;
+
+      /*
+       * Ignore our own realtime echo.
+       *
+       * The timestamp guard also protects us if an older
+       * realtime event arrives after a newer local write.
+       */
+      if (
+        remoteSnapshot ===
+        lastLocalSnapshotRef.current
+      ) {
+        lastRemoteSnapshotRef.current =
+          remoteSnapshot;
+        return;
+      }
+
+      if (
+        remoteUpdatedAtMs > 0 &&
+        remoteUpdatedAtMs <=
+          lastLocalUpdatedAtMsRef.current
+      ) {
+        return;
+      }
+
+      lastRemoteSnapshotRef.current =
+        remoteSnapshot;
+
+      hydrateFromRemote(remoteState);
+      setSyncReady(true);
+    };
+
+    const initializeRealtime = async () => {
+      const { data, error } =
+        await supabase
+          .from("auction_state")
+          .select("state, updated_at")
+          .eq("id", 1)
+          .maybeSingle();
+
+      if (!mounted) {
+        return;
+      }
 
       if (error) {
-        console.error("DPL auction state load failed:", error);
+        console.error(
+          "DPL auction state load failed:",
+          error
+        );
         return;
       }
 
       if (data?.state) {
+        const remoteSnapshot =
+          serializeSnapshot(data.state);
+
+        lastRemoteSnapshotRef.current =
+          remoteSnapshot;
+
+        lastPersistedSnapshotRef.current =
+          remoteSnapshot;
+
+        const remoteUpdatedAtMs = data.updated_at
+          ? Date.parse(data.updated_at)
+          : 0;
+
+        if (remoteUpdatedAtMs > 0) {
+          lastLocalUpdatedAtMsRef.current =
+            remoteUpdatedAtMs;
+        }
+
         hydrateFromRemote(data.state);
         setSyncReady(true);
       } else if (!readOnly) {
-        const initialTimerStartedAt = Date.now();
+        const initialTimerStartedAt =
+          Date.now();
+        const initialUpdatedAt =
+          new Date().toISOString();
+
         const initialState = {
           auctionStatus: "LIVE",
           currentBid: 2500,
@@ -430,24 +660,61 @@ function AuctionDashboard({ readOnly = false, currentUser = null, onLogout }) {
           currentPlayerIndex: 0,
           bidHistory,
           tickerMessages,
-          timerStartedAt: initialTimerStartedAt,
+          timerStartedAt:
+            initialTimerStartedAt,
           bidTimeRemaining: 120,
         };
 
-        setTimerStartedAt(initialTimerStartedAt);
-        const { error: insertError } = await supabase
-          .from("auction_state")
-          .insert({
-            id: 1,
-            state: initialState,
-            updated_at: new Date().toISOString(),
-          });
+        const initialSnapshot =
+          serializeSnapshot(initialState);
 
-        if (insertError && insertError.code !== "23505") {
-          console.error("DPL auction state initialization failed:", insertError);
+        lastPersistedSnapshotRef.current =
+          initialSnapshot;
+
+        lastRemoteSnapshotRef.current =
+          initialSnapshot;
+
+        lastLocalSnapshotRef.current =
+          initialSnapshot;
+
+        lastLocalUpdatedAtMsRef.current =
+          Date.parse(initialUpdatedAt);
+
+        setTimerStartedAt(
+          initialTimerStartedAt
+        );
+
+        const { error: insertError } =
+          await supabase
+            .from("auction_state")
+            .insert({
+              id: 1,
+              state: initialState,
+              updated_at: initialUpdatedAt,
+            });
+
+        if (
+          insertError &&
+          insertError.code !== "23505"
+        ) {
+          console.error(
+            "DPL auction state initialization failed:",
+            insertError
+          );
+
+          lastLocalSnapshotRef.current = null;
+          lastLocalUpdatedAtMsRef.current = 0;
           return;
         }
 
+        if (insertError?.code === "23505") {
+          /* Another client initialized the row first. */
+          lastLocalSnapshotRef.current = null;
+          lastLocalUpdatedAtMsRef.current = 0;
+        }
+
+        setSyncReady(true);
+      } else {
         setSyncReady(true);
       }
     };
@@ -464,12 +731,7 @@ function AuctionDashboard({ readOnly = false, currentUser = null, onLogout }) {
           table: "auction_state",
           filter: "id=eq.1",
         },
-        (payload) => {
-          if (mounted && payload.new?.state) {
-            hydrateFromRemote(payload.new.state);
-            setSyncReady(true);
-          }
-        }
+        applyRealtimeState
       )
       .on(
         "postgres_changes",
@@ -479,39 +741,187 @@ function AuctionDashboard({ readOnly = false, currentUser = null, onLogout }) {
           table: "auction_state",
           filter: "id=eq.1",
         },
-        (payload) => {
-          if (mounted && payload.new?.state) {
-            hydrateFromRemote(payload.new.state);
-            setSyncReady(true);
-          }
-        }
+        applyRealtimeState
       )
       .subscribe();
 
+    realtimeChannelRef.current = channel;
+
     return () => {
       mounted = false;
-      supabase.removeChannel(channel);
+
+      if (persistTimerRef.current) {
+        clearTimeout(
+          persistTimerRef.current
+        );
+        persistTimerRef.current = null;
+      }
+
+      pendingPersistRef.current = null;
+
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(
+          realtimeChannelRef.current
+        );
+      }
+
+      realtimeChannelRef.current = null;
     };
   }, [readOnly]);
 
+  /* =========================================================
+     PERSIST AUCTION STATE
+
+     Local auction actions are queued and written one at a
+     time. This prevents overlapping Supabase writes and
+     prevents Realtime from fighting with the operator UI.
+  ========================================================= */
+
+  const flushPendingPersist = async () => {
+    if (
+      readOnly ||
+      persistInFlightRef.current
+    ) {
+      return;
+    }
+
+    const snapshot =
+      pendingPersistRef.current;
+
+    if (!snapshot) {
+      return;
+    }
+
+    pendingPersistRef.current = null;
+    persistInFlightRef.current = true;
+
+    const snapshotString =
+      serializeSnapshot(snapshot);
+    const updatedAt =
+      new Date().toISOString();
+    const updatedAtMs =
+      Date.parse(updatedAt);
+
+    lastPersistedSnapshotRef.current =
+      snapshotString;
+    lastLocalSnapshotRef.current =
+      snapshotString;
+    lastLocalUpdatedAtMsRef.current =
+      updatedAtMs;
+
+    const { error } = await supabase
+      .from("auction_state")
+      .update({
+        state: snapshot,
+        updated_at: updatedAt,
+      })
+      .eq("id", 1);
+
+    persistInFlightRef.current = false;
+
+    if (error) {
+      console.error(
+        "DPL auction state save failed:",
+        error
+      );
+
+      /*
+       * Do not keep a failed write marked as current.
+       * The next local state change can retry normally.
+       */
+      lastPersistedSnapshotRef.current =
+        lastRemoteSnapshotRef.current;
+      lastLocalSnapshotRef.current = null;
+      lastLocalUpdatedAtMsRef.current = 0;
+    } else {
+      lastRemoteSnapshotRef.current =
+        snapshotString;
+    }
+
+    /*
+     * If another local action happened while the previous
+     * request was in flight, immediately save the newest one.
+     */
+    if (pendingPersistRef.current) {
+      void flushPendingPersist();
+    }
+  };
+
+  const queueAuctionPersist = (snapshot) => {
+    if (readOnly) {
+      return;
+    }
+
+    pendingPersistRef.current = snapshot;
+
+    if (persistInFlightRef.current) {
+      return;
+    }
+
+    if (persistTimerRef.current) {
+      clearTimeout(
+        persistTimerRef.current
+      );
+    }
+
+    persistTimerRef.current =
+      setTimeout(() => {
+        persistTimerRef.current = null;
+        void flushPendingPersist();
+      }, 100);
+  };
+
   useEffect(() => {
-    if (readOnly || !syncReady) return;
+    if (
+      readOnly ||
+      !syncReady
+    ) {
+      return;
+    }
 
-    const persist = async () => {
-      const { error } = await supabase
-        .from("auction_state")
-        .update({
-          state: auctionSnapshot,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", 1);
+    const snapshotString =
+      serializeSnapshot(auctionSnapshot);
 
-      if (error) {
-        console.error("DPL auction state save failed:", error);
+    /* Already synchronized. */
+    if (
+      snapshotString ===
+      lastPersistedSnapshotRef.current
+    ) {
+      return;
+    }
+
+    /*
+     * This state came from another client through Realtime.
+     * Never write it straight back to the database.
+     */
+    if (
+      snapshotString ===
+      lastRemoteSnapshotRef.current
+    ) {
+      lastPersistedSnapshotRef.current =
+        snapshotString;
+      return;
+    }
+
+    queueAuctionPersist(
+      auctionSnapshot
+    );
+
+    return () => {
+      /*
+       * Do not cancel an in-flight request here. Only cancel
+       * the debounce timer when React schedules a newer state.
+       */
+      if (
+        persistTimerRef.current &&
+        !persistInFlightRef.current
+      ) {
+        clearTimeout(
+          persistTimerRef.current
+        );
+        persistTimerRef.current = null;
       }
     };
-
-    persist();
   }, [
     readOnly,
     syncReady,
@@ -533,23 +943,47 @@ function AuctionDashboard({ readOnly = false, currentUser = null, onLogout }) {
   ========================================================= */
 
   useEffect(() => {
-    if (auctionStatus !== "LIVE" || !timerStartedAt) {
+    if (
+      auctionStatus !== "LIVE" ||
+      !timerStartedAt
+    ) {
       return;
     }
 
     const tick = () => {
-      const remaining = Math.max(
-        0,
-        120 - Math.floor((Date.now() - timerStartedAt) / 1000)
+      const remaining =
+        Math.max(
+          0,
+          120 -
+            Math.floor(
+              (Date.now() -
+                timerStartedAt) /
+                1000
+            )
+        );
+
+      setBidTimeRemaining(
+        remaining
       );
-      setBidTimeRemaining(remaining);
     };
 
     tick();
-    const interval = setInterval(tick, 1000);
 
-    return () => clearInterval(interval);
-  }, [auctionStatus, currentPlayerIndex, timerStartedAt]);
+    const interval =
+      setInterval(
+        tick,
+        1000
+      );
+
+    return () =>
+      clearInterval(
+        interval
+      );
+  }, [
+    auctionStatus,
+    currentPlayerIndex,
+    timerStartedAt,
+  ]);
 
   /* =========================================================
      TRIGGER BID FLASH
@@ -567,78 +1001,118 @@ function AuctionDashboard({ readOnly = false, currentUser = null, onLogout }) {
      APPLY NEW BID
   ========================================================= */
 
-  const applyBid = (teamId, newBid, bidType) => {
-    if (readOnly) return false;
-    const selectedTeam = teams.find(
-      (team) => team.id === teamId
-    );
+  const applyBid = (
+    teamId,
+    newBid,
+    bidType
+  ) => {
+    if (readOnly) {
+      return false;
+    }
+
+    const selectedTeam =
+      teams.find(
+        (team) =>
+          team.id === teamId
+      );
 
     if (!selectedTeam) {
       return false;
     }
 
-    if (teamId === highestBidder) {
+    if (
+      teamId === highestBidder
+    ) {
       return false;
     }
 
-    if (selectedTeam.amount < newBid) {
+    if (
+      selectedTeam.amount <
+      newBid
+    ) {
       return false;
     }
 
-    const previousHighestTeam = teams.find(
-      (team) => team.id === highestBidder
+    const previousHighestTeam =
+      teams.find(
+        (team) =>
+          team.id ===
+          highestBidder
+      );
+
+    setTeams(
+      (previousTeams) =>
+        previousTeams.map(
+          (team) => {
+            if (
+              team.id === teamId
+            ) {
+              return {
+                ...team,
+                amount:
+                  team.amount -
+                  newBid,
+              };
+            }
+
+            if (
+              previousHighestTeam &&
+              team.id ===
+                previousHighestTeam.id
+            ) {
+              return {
+                ...team,
+                amount:
+                  team.amount +
+                  currentBid,
+              };
+            }
+
+            return team;
+          }
+        )
     );
 
-    setTeams((previousTeams) =>
-      previousTeams.map((team) => {
-        if (team.id === teamId) {
-          return {
-            ...team,
-            amount: team.amount - newBid,
-          };
-        }
-
-        if (
-          previousHighestTeam &&
-          team.id === previousHighestTeam.id
-        ) {
-          return {
-            ...team,
-            amount: team.amount + currentBid,
-          };
-        }
-
-        return team;
-      })
+    setCurrentBid(
+      newBid
     );
 
-    setCurrentBid(newBid);
+    setHighestBidder(
+      teamId
+    );
 
-    setHighestBidder(teamId);
+    setTimerStartedAt(
+      Date.now()
+    );
 
+    setBidTimeRemaining(
+      120
+    );
 
-    setTimerStartedAt(Date.now());
-    setBidTimeRemaining(120);
-
-    setBidHistory((previousHistory) =>
-      [
-        {
-          id: Date.now(),
-          team: teamId,
-          teamName: selectedTeam.name,
-          amount: newBid,
-          timestamp: Date.now(),
-          type: bidType,
-        },
-        ...previousHistory,
-      ].slice(0, 10)
+    setBidHistory(
+      (previousHistory) =>
+        [
+          {
+            id: Date.now(),
+            team: teamId,
+            teamName:
+              selectedTeam.name,
+            amount: newBid,
+            timestamp:
+              Date.now(),
+            type: bidType,
+          },
+          ...previousHistory,
+        ].slice(0, 10)
     );
 
     addTickerMessage(
       `${teamId} BID ₹${newBid.toLocaleString(
         "en-IN"
       )} • ${currentPlayer.name}`,
-      bidType === "MANUAL" ? "manual" : "bid"
+      bidType === "MANUAL"
+        ? "manual"
+        : "bid"
     );
 
     triggerBidFlash();
@@ -650,28 +1124,42 @@ function AuctionDashboard({ readOnly = false, currentUser = null, onLogout }) {
      QUICK BID
   ========================================================= */
 
-  const placeBid = (teamId) => {
-  if (auctionStatus !== "LIVE") {
-    return;
-  }
+  const placeBid = (
+    teamId
+  ) => {
+    if (
+      auctionStatus !== "LIVE"
+    ) {
+      return;
+    }
 
-  if (teamId === highestBidder) {
-    return;
-  }
+    if (
+      teamId === highestBidder
+    ) {
+      return;
+    }
 
-  const nextBid = highestBidder
-    ? currentBid + BID_INCREMENT
-    : currentPlayer.basePrice;
+    const nextBid =
+      highestBidder
+        ? currentBid +
+          BID_INCREMENT
+        : currentPlayer.basePrice;
 
-  applyBid(teamId, nextBid, "QUICK");
-};
+    applyBid(
+      teamId,
+      nextBid,
+      "QUICK"
+    );
+  };
 
   /* =========================================================
      MANUAL BID
   ========================================================= */
 
   const openManualBid = () => {
-    if (auctionStatus !== "LIVE") {
+    if (
+      auctionStatus !== "LIVE"
+    ) {
       return;
     }
 
@@ -691,24 +1179,38 @@ function AuctionDashboard({ readOnly = false, currentUser = null, onLogout }) {
   const placeManualBid = () => {
     setManualError("");
 
-    if (auctionStatus !== "LIVE") {
-      setManualError("Auction is not currently live.");
+    if (
+      auctionStatus !== "LIVE"
+    ) {
+      setManualError(
+        "Auction is not currently live."
+      );
       return;
     }
 
     if (!manualTeam) {
-      setManualError("Please select a team.");
+      setManualError(
+        "Please select a team."
+      );
       return;
     }
 
-    const numericBid = Number(manualBidAmount);
+    const numericBid =
+      Number(manualBidAmount);
 
-    if (!manualBidAmount || Number.isNaN(numericBid)) {
-      setManualError("Enter a valid bid amount.");
+    if (
+      !manualBidAmount ||
+      Number.isNaN(numericBid)
+    ) {
+      setManualError(
+        "Enter a valid bid amount."
+      );
       return;
     }
 
-    if (numericBid <= currentBid) {
+    if (
+      numericBid <= currentBid
+    ) {
       setManualError(
         `Manual bid must be higher than ₹${currentBid.toLocaleString(
           "en-IN"
@@ -717,23 +1219,32 @@ function AuctionDashboard({ readOnly = false, currentUser = null, onLogout }) {
       return;
     }
 
-    const selectedTeam = teams.find(
-      (team) => team.id === manualTeam
-    );
+    const selectedTeam =
+      teams.find(
+        (team) =>
+          team.id === manualTeam
+      );
 
     if (!selectedTeam) {
-      setManualError("Selected team was not found.");
+      setManualError(
+        "Selected team was not found."
+      );
       return;
     }
 
-    if (manualTeam === highestBidder) {
+    if (
+      manualTeam === highestBidder
+    ) {
       setManualError(
         "The current highest bidder cannot bid again."
       );
       return;
     }
 
-    if (selectedTeam.amount < numericBid) {
+    if (
+      selectedTeam.amount <
+      numericBid
+    ) {
       setManualError(
         `Insufficient purse. Team has only ₹${selectedTeam.amount.toLocaleString(
           "en-IN"
@@ -742,14 +1253,17 @@ function AuctionDashboard({ readOnly = false, currentUser = null, onLogout }) {
       return;
     }
 
-    const success = applyBid(
-      manualTeam,
-      numericBid,
-      "MANUAL"
-    );
+    const success =
+      applyBid(
+        manualTeam,
+        numericBid,
+        "MANUAL"
+      );
 
     if (!success) {
-      setManualError("Unable to place this bid.");
+      setManualError(
+        "Unable to place this bid."
+      );
       return;
     }
 
@@ -761,7 +1275,10 @@ function AuctionDashboard({ readOnly = false, currentUser = null, onLogout }) {
   ========================================================= */
 
   const handleStartResume = () => {
-    if (readOnly) return;
+    if (readOnly) {
+      return;
+    }
+
     if (
       auctionStatus === "SOLD" ||
       auctionStatus === "ENDED"
@@ -770,11 +1287,21 @@ function AuctionDashboard({ readOnly = false, currentUser = null, onLogout }) {
     }
 
     setTimerStartedAt(
-      Date.now() - Math.max(0, 120 - bidTimeRemaining) * 1000
+      Date.now() -
+        Math.max(
+          0,
+          120 -
+            bidTimeRemaining
+        ) *
+          1000
     );
-    setAuctionStatus("LIVE");
-setSoldTeam(null);
-setSoldOverlayOpen(false);
+
+    setAuctionStatus(
+      "LIVE"
+    );
+
+    setSoldTeam(null);
+    setSoldOverlayOpen(false);
 
     addTickerMessage(
       `AUCTION LIVE • BIDDING RESUMED • ${currentPlayer.name}`,
@@ -783,13 +1310,21 @@ setSoldOverlayOpen(false);
   };
 
   const handlePause = () => {
-    if (readOnly) return;
-    if (auctionStatus !== "LIVE") {
+    if (readOnly) {
+      return;
+    }
+
+    if (
+      auctionStatus !== "LIVE"
+    ) {
       return;
     }
 
     setTimerStartedAt(null);
-    setAuctionStatus("PAUSED");
+
+    setAuctionStatus(
+      "PAUSED"
+    );
 
     addTickerMessage(
       `AUCTION PAUSED • CURRENT PLAYER: ${currentPlayer.name} • BID ₹${currentBid.toLocaleString(
@@ -804,8 +1339,13 @@ setSoldOverlayOpen(false);
   ========================================================= */
 
   const handleSold = () => {
-    if (readOnly) return;
-    if (auctionStatus !== "LIVE") {
+    if (readOnly) {
+      return;
+    }
+
+    if (
+      auctionStatus !== "LIVE"
+    ) {
       return;
     }
 
@@ -813,9 +1353,12 @@ setSoldOverlayOpen(false);
       return;
     }
 
-    const winningTeam = teams.find(
-      (team) => team.id === highestBidder
-    );
+    const winningTeam =
+      teams.find(
+        (team) =>
+          team.id ===
+          highestBidder
+      );
 
     if (!winningTeam) {
       return;
@@ -824,51 +1367,78 @@ setSoldOverlayOpen(false);
     const soldRecord = {
       id: Date.now(),
 
-      playerNumber: currentPlayer.number,
+      playerNumber:
+        currentPlayer.number,
 
-      playerName: currentPlayer.name,
+      playerName:
+        currentPlayer.name,
 
-      category: currentPlayer.category,
+      category:
+        currentPlayer.category,
 
-      country: currentPlayer.country,
+      country:
+        currentPlayer.country,
 
-      age: currentPlayer.age,
+      age:
+        currentPlayer.age,
 
-      style: currentPlayer.style,
+      style:
+        currentPlayer.style,
 
-      image: currentPlayer.image,
+      image:
+        currentPlayer.image,
 
-      set: currentPlayer.set,
+      set:
+        currentPlayer.set,
 
-      teamId: winningTeam.id,
+      teamId:
+        winningTeam.id,
 
-      teamName: winningTeam.name,
+      teamName:
+        winningTeam.name,
 
-      teamShortName: winningTeam.shortName,
+      teamShortName:
+        winningTeam.shortName,
 
-      teamLogo: winningTeam.logo,
+      teamLogo:
+        winningTeam.logo,
 
-      finalPrice: currentBid,
+      finalPrice:
+        currentBid,
 
-      remainingPurse: winningTeam.amount,
+      remainingPurse:
+        winningTeam.amount,
 
-      soldAt: Date.now(),
+      soldAt:
+        Date.now(),
     };
 
-    setSoldPlayers((previousPlayers) => [
-      ...previousPlayers,
-      soldRecord,
-    ]);
+    setSoldPlayers(
+      (previousPlayers) => [
+        ...previousPlayers,
+        soldRecord,
+      ]
+    );
 
-    setTimerStartedAt(null);
-    setAuctionStatus("SOLD");
+    setTimerStartedAt(
+      null
+    );
 
-    setSoldTeam(highestBidder);
+    setAuctionStatus(
+      "SOLD"
+    );
 
-    setSoldOverlayOpen(true);
+    setSoldTeam(
+      highestBidder
+    );
 
-    // Close any open operator modal.
-    setManualBidOpen(false);
+    setSoldOverlayOpen(
+      true
+    );
+
+    setManualBidOpen(
+      false
+    );
 
     addTickerMessage(
       `PLAYER SOLD • ${currentPlayer.name} • ${winningTeam.id} • ₹${currentBid.toLocaleString(
@@ -879,105 +1449,160 @@ setSoldOverlayOpen(false);
   };
 
   /* =========================================================
-   MARK PLAYER UNSOLD
-========================================================= */
+     MARK PLAYER UNSOLD
+  ========================================================= */
 
-const handleUnsold = () => {
-  if (readOnly) return;
-  if (auctionStatus !== "LIVE") {
-    return;
-  }
+  const handleUnsold = () => {
+    if (readOnly) {
+      return;
+    }
 
-  addTickerMessage(
-    `PLAYER UNSOLD • ${currentPlayer.name} • NO TEAM INTEREST`,
-    "unsold"
-  );
-
-  const nextIndex = currentPlayerIndex + 1;
-
-  // No more players
-  if (nextIndex >= playerQueue.length) {
-    setSoldOverlayOpen(false);
-    setAuctionStatus("ENDED");
-    setSoldTeam(null);
-    setHighestBidder(null);
-    setTimerStartedAt(null);
-    setBidTimeRemaining(0);
+    if (
+      auctionStatus !== "LIVE"
+    ) {
+      return;
+    }
 
     addTickerMessage(
-      "AUCTION ENDED • ALL PLAYERS HAVE BEEN AUCTIONED",
-      "end"
+      `PLAYER UNSOLD • ${currentPlayer.name} • NO TEAM INTEREST`,
+      "unsold"
     );
 
-    return;
-  }
+    const nextIndex =
+      currentPlayerIndex + 1;
 
-  // Move to next player
-  setCurrentPlayerIndex(nextIndex);
+    if (
+      nextIndex >=
+      playerQueue.length
+    ) {
+      setSoldOverlayOpen(
+        false
+      );
 
-  // Reset bidding state
-  setCurrentBid(
-    playerQueue[nextIndex].basePrice
-  );
+      setAuctionStatus(
+        "ENDED"
+      );
 
-  setHighestBidder(null);
+      setSoldTeam(null);
 
-  // Reset timer for new player.
-  setTimerStartedAt(Date.now());
-  setBidTimeRemaining(120);
+      setHighestBidder(
+        null
+      );
 
-  setSoldTeam(null);
-  setSoldOverlayOpen(false);
+      setTimerStartedAt(
+        null
+      );
 
-  setAuctionStatus("LIVE");
+      setBidTimeRemaining(
+        0
+      );
 
-  setBidHistory([]);
+      addTickerMessage(
+        "AUCTION ENDED • ALL PLAYERS HAVE BEEN AUCTIONED",
+        "end"
+      );
 
-  setManualBidOpen(false);
+      return;
+    }
 
-  addTickerMessage(
-    `NEXT PLAYER • ${playerQueue[nextIndex].number} • ${
-      playerQueue[nextIndex].name
-    } • BASE PRICE ₹${playerQueue[
+    setCurrentPlayerIndex(
       nextIndex
-    ].basePrice.toLocaleString("en-IN")}`,
-    "start"
-  );
-};
- /* =========================================================
-   AUTOMATIC PLAYER CHANGE WHEN TIMER EXPIRES
-========================================================= */
+    );
 
-useEffect(() => {
-  if (
-    readOnly ||
-    auctionStatus !== "LIVE" ||
-    bidTimeRemaining !== 0
-  ) {
-    return;
-  }
+    setCurrentBid(
+      playerQueue[
+        nextIndex
+      ].basePrice
+    );
 
-  handleUnsold();
-}, [bidTimeRemaining, auctionStatus, readOnly]);
+    setHighestBidder(
+      null
+    );
 
+    setTimerStartedAt(
+      Date.now()
+    );
 
+    setBidTimeRemaining(
+      120
+    );
+
+    setSoldTeam(null);
+
+    setSoldOverlayOpen(
+      false
+    );
+
+    setAuctionStatus(
+      "LIVE"
+    );
+
+    setBidHistory([]);
+
+    setManualBidOpen(
+      false
+    );
+
+    addTickerMessage(
+      `NEXT PLAYER • ${playerQueue[nextIndex].number} • ${
+        playerQueue[nextIndex].name
+      } • BASE PRICE ₹${playerQueue[
+        nextIndex
+      ].basePrice.toLocaleString(
+        "en-IN"
+      )}`,
+      "start"
+    );
+  };
+
+  /* =========================================================
+     AUTOMATIC PLAYER CHANGE WHEN TIMER EXPIRES
+  ========================================================= */
+
+  useEffect(() => {
+    if (
+      readOnly ||
+      auctionStatus !== "LIVE" ||
+      bidTimeRemaining !== 0
+    ) {
+      return;
+    }
+
+    handleUnsold();
+  }, [
+    bidTimeRemaining,
+    auctionStatus,
+    readOnly,
+  ]);
 
   /* =========================================================
      CONTINUE TO NEXT PLAYER
   ========================================================= */
 
   const handleNextPlayer = () => {
-    if (readOnly) return;
-    const nextIndex = currentPlayerIndex + 1;
+    if (readOnly) {
+      return;
+    }
 
-    /*
-      If there are no more players,
-      finish the auction.
-    */
-    if (nextIndex >= playerQueue.length) {
-      setSoldOverlayOpen(false);
-      setAuctionStatus("ENDED");
-      setTimerStartedAt(null);
+    const nextIndex =
+      currentPlayerIndex + 1;
+
+    if (
+      nextIndex >=
+      playerQueue.length
+    ) {
+      setSoldOverlayOpen(
+        false
+      );
+
+      setAuctionStatus(
+        "ENDED"
+      );
+
+      setTimerStartedAt(
+        null
+      );
+
       setSoldTeam(null);
 
       addTickerMessage(
@@ -988,89 +1613,112 @@ useEffect(() => {
       return;
     }
 
-    /*
-      Move to next player.
-    */
-    setCurrentPlayerIndex(nextIndex);
+    setCurrentPlayerIndex(
+      nextIndex
+    );
 
-    /*
-      Reset bidding state.
-    */
     setCurrentBid(
-  playerQueue[nextIndex].basePrice
-  );
+      playerQueue[
+        nextIndex
+      ].basePrice
+    );
 
-  setHighestBidder(null);
+    setHighestBidder(
+      null
+    );
 
-setTimerStartedAt(Date.now());
-setBidTimeRemaining(120);
+    setTimerStartedAt(
+      Date.now()
+    );
+
+    setBidTimeRemaining(
+      120
+    );
 
     setSoldTeam(null);
 
-    setSoldOverlayOpen(false);
+    setSoldOverlayOpen(
+      false
+    );
 
-    setAuctionStatus("LIVE");
+    setAuctionStatus(
+      "LIVE"
+    );
 
     setBidHistory([]);
 
-    setManualBidOpen(false);
+    setManualBidOpen(
+      false
+    );
 
     addTickerMessage(
       `NEXT PLAYER • ${playerQueue[nextIndex].number} • ${playerQueue[nextIndex].name} • BASE PRICE ₹${playerQueue[
         nextIndex
-      ].basePrice.toLocaleString("en-IN")}`,
+      ].basePrice.toLocaleString(
+        "en-IN"
+      )}`,
       "start"
     );
   };
 
   /* =========================================================
      AUTOMATIC SOLD SCREEN TIMER
-
-     SOLD
-       ↓
-     5 SECONDS
-       ↓
-     NEXT PLAYER
-       ↓
-     NORMAL AUCTION
   ========================================================= */
 
   const latestSoldPlayer =
     soldPlayers.length > 0
-      ? soldPlayers[soldPlayers.length - 1]
+      ? soldPlayers[
+          soldPlayers.length - 1
+        ]
       : null;
 
   useEffect(() => {
-  if (readOnly || !soldOverlayOpen || !latestSoldPlayer) {
-    return;
-  }
+    if (
+      readOnly ||
+      !soldOverlayOpen ||
+      !latestSoldPlayer
+    ) {
+      return;
+    }
 
-  // Automatically move to the next player
-  // only if the operator does not click NEXT PLAYER
-  // within 20 seconds.
-  const timer = setTimeout(() => {
-    handleNextPlayer();
-  }, SOLD_SCREEN_DURATION);
+    const timer =
+      setTimeout(() => {
+        handleNextPlayer();
+      }, SOLD_SCREEN_DURATION);
 
-  return () => {
-    // Clicking NEXT PLAYER changes soldOverlayOpen/current player,
-    // which cleans up this timer before it can fire again.
-    clearTimeout(timer);
-  };
-}, [soldOverlayOpen, latestSoldPlayer, readOnly]);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [
+    soldOverlayOpen,
+    latestSoldPlayer,
+    readOnly,
+  ]);
 
   /* =========================================================
      END AUCTION
   ========================================================= */
 
   const handleEndAuction = () => {
-    if (readOnly) return;
-    setTimerStartedAt(null);
-    setAuctionStatus("ENDED");
+    if (readOnly) {
+      return;
+    }
 
-    setManualBidOpen(false);
+    setTimerStartedAt(
+      null
+    );
 
-    setSoldOverlayOpen(false);
+    setAuctionStatus(
+      "ENDED"
+    );
+
+    setManualBidOpen(
+      false
+    );
+
+    setSoldOverlayOpen(
+      false
+    );
 
     addTickerMessage(
       `AUCTION ENDED • ROUND 01 • FINAL BID ₹${currentBid.toLocaleString(
@@ -1084,45 +1732,49 @@ setBidTimeRemaining(120);
      KEPT PLAYER SEARCH
   ========================================================= */
 
-  const filteredClubMembers = useMemo(() => {
-    const query = playerSearch
-      .toLowerCase()
-      .trim();
-
-    if (!query) {
-      return clubMembers;
-    }
-
-    return clubMembers.filter(
-      (player) =>
-        player.name
+  const filteredClubMembers =
+    useMemo(() => {
+      const query =
+        playerSearch
           .toLowerCase()
-          .includes(query) ||
-        player.category
-          .toLowerCase()
-          .includes(query)
-    );
-  }, [playerSearch]);
+          .trim();
 
-  const filteredOutsideParticipants = useMemo(() => {
-    const query = playerSearch
-      .toLowerCase()
-      .trim();
+      if (!query) {
+        return clubMembers;
+      }
 
-    if (!query) {
-      return outsideParticipants;
-    }
+      return clubMembers.filter(
+        (player) =>
+          player.name
+            .toLowerCase()
+            .includes(query) ||
+          player.category
+            .toLowerCase()
+            .includes(query)
+      );
+    }, [playerSearch]);
 
-    return outsideParticipants.filter(
-      (player) =>
-        player.name
+  const filteredOutsideParticipants =
+    useMemo(() => {
+      const query =
+        playerSearch
           .toLowerCase()
-          .includes(query) ||
-        player.category
-          .toLowerCase()
-          .includes(query)
-    );
-  }, [playerSearch]);
+          .trim();
+
+      if (!query) {
+        return outsideParticipants;
+      }
+
+      return outsideParticipants.filter(
+        (player) =>
+          player.name
+            .toLowerCase()
+            .includes(query) ||
+          player.category
+            .toLowerCase()
+            .includes(query)
+      );
+    }, [playerSearch]);
 
   const totalKeptPlayers =
     clubMembers.length +
@@ -1132,19 +1784,24 @@ setBidTimeRemaining(120);
      SOLD SCREEN STATISTICS
   ========================================================= */
 
-  const totalPlayersSold = soldPlayers.length;
+  const totalPlayersSold =
+    soldPlayers.length;
 
-  const winningTeamSquadSize = latestSoldPlayer
-    ? soldPlayers.filter(
-        (player) =>
-          player.teamId === latestSoldPlayer.teamId
-      ).length
-    : 0;
+  const winningTeamSquadSize =
+    latestSoldPlayer
+      ? soldPlayers.filter(
+          (player) =>
+            player.teamId ===
+            latestSoldPlayer.teamId
+        ).length
+      : 0;
 
-  const slotsRemaining = Math.max(
-    0,
-    MAX_SQUAD_SIZE - winningTeamSquadSize
-  );
+  const slotsRemaining =
+    Math.max(
+      0,
+      MAX_SQUAD_SIZE -
+        winningTeamSquadSize
+    );
 
   /* =========================================================
      NEXT PLAYER
@@ -1153,7 +1810,9 @@ setBidTimeRemaining(120);
   const nextPlayer =
     currentPlayerIndex + 1 <
     playerQueue.length
-      ? playerQueue[currentPlayerIndex + 1]
+      ? playerQueue[
+          currentPlayerIndex + 1
+        ]
       : null;
 
   /* =========================================================
@@ -1162,13 +1821,15 @@ setBidTimeRemaining(120);
 
   const tickerItems =
     tickerMessages.length > 0
-      ? [...tickerMessages, ...tickerMessages]
+      ? [
+          ...tickerMessages,
+          ...tickerMessages,
+        ]
       : [
           {
             id: 999,
             type: "start",
-            text:
-              "AUCTION BEGINS • ROUND 01 • PLAYER AUCTION 2026",
+            text: "AUCTION BEGINS • ROUND 01 • PLAYER AUCTION 2026",
           },
         ];
 
@@ -1179,8 +1840,15 @@ setBidTimeRemaining(120);
   if (!syncReady) {
     return (
       <div className="auction-sync-loading">
-        <img src="/assets/logo/dpl-logo.png" alt="DPL" />
-        <strong>CONNECTING TO LIVE AUCTION</strong>
+        <img
+          src="/assets/logo/dpl-logo.png"
+          alt="DPL"
+        />
+
+        <strong>
+          CONNECTING TO LIVE AUCTION
+        </strong>
+
         <span>
           {readOnly
             ? "Waiting for the operator to initialize the auction..."
@@ -1209,7 +1877,9 @@ setBidTimeRemaining(120);
 
           <div>
             <h1>DPL AUCTION</h1>
-            <span>PLAYER AUCTION 2026</span>
+            <span>
+              PLAYER AUCTION 2026
+            </span>
           </div>
 
         </div>
@@ -1221,9 +1891,11 @@ setBidTimeRemaining(120);
 
           {auctionStatus === "LIVE"
             ? "LIVE AUCTION"
-            : auctionStatus === "PAUSED"
+            : auctionStatus ===
+                "PAUSED"
               ? "AUCTION PAUSED"
-              : auctionStatus === "SOLD"
+              : auctionStatus ===
+                  "SOLD"
                 ? "PLAYER SOLD"
                 : "AUCTION ENDED"}
         </div>
@@ -1233,22 +1905,35 @@ setBidTimeRemaining(120);
           <button
             className="kept-players-button"
             onClick={() =>
-              setKeptPlayersOpen(true)
+              setKeptPlayersOpen(
+                true
+              )
             }
           >
             <span className="kept-icon">
               ◈
             </span>
 
-            <span>KEPT PLAYERS</span>
+            <span>
+              KEPT PLAYERS
+            </span>
 
             <strong>
               {totalKeptPlayers}
             </strong>
           </button>
 
-          <div className={`auction-session-badge ${readOnly ? "viewer" : "operator"}`}>
-            {readOnly ? currentUser?.team_id || "TEAM VIEWER" : "OPERATOR"}
+          <div
+            className={`auction-session-badge ${
+              readOnly
+                ? "viewer"
+                : "operator"
+            }`}
+          >
+            {readOnly
+              ? currentUser?.team_id ||
+                "TEAM VIEWER"
+              : "OPERATOR"}
           </div>
 
           <div className="auction-round">
@@ -1256,7 +1941,10 @@ setBidTimeRemaining(120);
           </div>
 
           {onLogout && (
-            <button className="auction-logout-button" onClick={onLogout}>
+            <button
+              className="auction-logout-button"
+              onClick={onLogout}
+            >
               LOGOUT
             </button>
           )}
@@ -1309,58 +1997,77 @@ setBidTimeRemaining(120);
                 </div>
               ) : (
                 <>
-              <button
-                className="control-button start"
-                onClick={handleStartResume}
-                disabled={
-                  auctionStatus === "LIVE" ||
-                  auctionStatus === "SOLD" ||
-                  auctionStatus === "ENDED"
-                }
-              >
-                START / RESUME
-              </button>
 
-              <button
-                className="control-button pause"
-                onClick={handlePause}
-                disabled={
-                  auctionStatus !== "LIVE"
-                }
-              >
-                PAUSE
-              </button>
+                  <button
+                    className="control-button start"
+                    onClick={
+                      handleStartResume
+                    }
+                    disabled={
+                      auctionStatus ===
+                        "LIVE" ||
+                      auctionStatus ===
+                        "SOLD" ||
+                      auctionStatus ===
+                        "ENDED"
+                    }
+                  >
+                    START / RESUME
+                  </button>
 
-              <button
-  className="control-button sold"
-  onClick={handleSold}
-  disabled={
-    auctionStatus !== "LIVE" ||
-    !highestBidder
-  }
->
-  SOLD
-</button>
+                  <button
+                    className="control-button pause"
+                    onClick={
+                      handlePause
+                    }
+                    disabled={
+                      auctionStatus !==
+                      "LIVE"
+                    }
+                  >
+                    PAUSE
+                  </button>
 
-<button
-  className="control-button unsold"
-  onClick={handleUnsold}
-  disabled={
-    auctionStatus !== "LIVE"
-  }
->
-  UNSOLD
-</button>
+                  <button
+                    className="control-button sold"
+                    onClick={
+                      handleSold
+                    }
+                    disabled={
+                      auctionStatus !==
+                        "LIVE" ||
+                      !highestBidder
+                    }
+                  >
+                    SOLD
+                  </button>
 
-<button
-  className="control-button end"
-  onClick={handleEndAuction}
-  disabled={
-    auctionStatus === "ENDED"
-  }
->
-  END AUCTION
-</button>
+                  <button
+                    className="control-button unsold"
+                    onClick={
+                      handleUnsold
+                    }
+                    disabled={
+                      auctionStatus !==
+                      "LIVE"
+                    }
+                  >
+                    UNSOLD
+                  </button>
+
+                  <button
+                    className="control-button end"
+                    onClick={
+                      handleEndAuction
+                    }
+                    disabled={
+                      auctionStatus ===
+                      "ENDED"
+                    }
+                  >
+                    END AUCTION
+                  </button>
+
                 </>
               )}
 
@@ -1392,13 +2099,19 @@ setBidTimeRemaining(120);
 
                 {currentPlayer.image ? (
                   <img
-                    src={currentPlayer.image}
-                    alt={currentPlayer.name}
+                    src={
+                      currentPlayer.image
+                    }
+                    alt={
+                      currentPlayer.name
+                    }
                     className="current-player-image"
                   />
                 ) : (
                   <div className="player-image-placeholder">
-                    <span>PLAYER PHOTO</span>
+                    <span>
+                      PLAYER PHOTO
+                    </span>
 
                     <small>
                       IMAGE COMING SOON
@@ -1419,24 +2132,35 @@ setBidTimeRemaining(120);
                 </h2>
 
                 <p className="player-country">
-                  🇮🇳 {currentPlayer.country}
+                  🇮🇳{" "}
+                  {
+                    currentPlayer.country
+                  }
                 </p>
 
                 <div className="player-meta">
 
                   <div>
-                    <span>AGE</span>
+                    <span>
+                      AGE
+                    </span>
 
                     <strong>
-                      {currentPlayer.age}
+                      {
+                        currentPlayer.age
+                      }
                     </strong>
                   </div>
 
                   <div>
-                    <span>STYLE</span>
+                    <span>
+                      STYLE
+                    </span>
 
                     <strong>
-                      {currentPlayer.style}
+                      {
+                        currentPlayer.style
+                      }
                     </strong>
                   </div>
 
@@ -1444,7 +2168,9 @@ setBidTimeRemaining(120);
 
                 <div className="base-price">
 
-                  <span>BASE PRICE</span>
+                  <span>
+                    BASE PRICE
+                  </span>
 
                   <strong>
                     ₹
@@ -1467,27 +2193,37 @@ setBidTimeRemaining(120);
 
           <section className="current-bid-section">
 
-  <div className="bid-timer">
+            <div className="bid-timer">
 
-    <span className="bid-timer-label">
-      TIME REMAINING
-    </span>
+              <span className="bid-timer-label">
+                TIME REMAINING
+              </span>
 
-    <strong>
-      {String(
-        Math.floor(bidTimeRemaining / 60)
-      ).padStart(2, "0")}
-      :
-      {String(
-        bidTimeRemaining % 60
-      ).padStart(2, "0")}
-    </strong>
+              <strong>
+                {String(
+                  Math.floor(
+                    bidTimeRemaining /
+                      60
+                  )
+                ).padStart(
+                  2,
+                  "0"
+                )}
+                :
+                {String(
+                  bidTimeRemaining %
+                    60
+                ).padStart(
+                  2,
+                  "0"
+                )}
+              </strong>
 
-  </div>
+            </div>
 
-  <span className="current-bid-label">
-    CURRENT BID
-  </span>
+            <span className="current-bid-label">
+              CURRENT BID
+            </span>
 
             <h2
               className={
@@ -1559,12 +2295,17 @@ setBidTimeRemaining(120);
             {!readOnly && (
               <button
                 className="manual-bid-button"
-                onClick={openManualBid}
+                onClick={
+                  openManualBid
+                }
                 disabled={
-                  auctionStatus !== "LIVE"
+                  auctionStatus !==
+                  "LIVE"
                 }
               >
-                <span>＋</span>
+                <span>
+                  ＋
+                </span>
                 MANUAL BID
               </button>
             )}
@@ -1574,13 +2315,16 @@ setBidTimeRemaining(120);
               NEXT QUICK BID
 
               <strong>
-  ₹
-  {(
-    highestBidder
-      ? currentBid + BID_INCREMENT
-      : currentPlayer.basePrice
-  ).toLocaleString("en-IN")}
-</strong>
+                ₹
+                {(
+                  highestBidder
+                    ? currentBid +
+                      BID_INCREMENT
+                    : currentPlayer.basePrice
+                ).toLocaleString(
+                  "en-IN"
+                )}
+              </strong>
 
             </div>
 
@@ -1608,154 +2352,223 @@ setBidTimeRemaining(120);
 
           <div className="teams-grid">
 
-            {teams.map((team) => {
+            {teams.map(
+              (team) => {
 
-              const isHighest =
-                highestBidder === team.id;
+                const isHighest =
+                  highestBidder ===
+                  team.id;
 
-              const nextQuickBid = highestBidder
-  ? currentBid + BID_INCREMENT
-  : currentPlayer.basePrice;
+                const nextQuickBid =
+                  highestBidder
+                    ? currentBid +
+                      BID_INCREMENT
+                    : currentPlayer.basePrice;
 
-const canAffordQuickBid =
-  team.amount >= nextQuickBid;
+                const canAffordQuickBid =
+                  team.amount >=
+                  nextQuickBid;
 
-              return (
-                <div
-                  key={team.id}
-                  className={`team-card ${
-                    isHighest
-                      ? "highest"
-                      : ""
-                  } ${
-                    !canAffordQuickBid
-                      ? "insufficient"
-                      : ""
-                  }`}
-                >
+                return (
+                  <div
+                    key={team.id}
+                    className={`team-card ${
+                      isHighest
+                        ? "highest"
+                        : ""
+                    } ${
+                      !canAffordQuickBid
+                        ? "insufficient"
+                        : ""
+                    }`}
+                  >
 
-                  <div className="team-card-header">
+                    <div className="team-card-header">
 
-                    <div className="team-logo-wrapper">
+                      <div className="team-logo-wrapper">
+
+                        <img
+                          src={
+                            team.logo
+                          }
+                          alt={
+                            team.name
+                          }
+                          className="team-logo"
+                        />
+
+                      </div>
+
+                      <div className="team-title">
+
+                        <span>
+                          {team.id}
+                        </span>
+
+                        <strong>
+                          {
+                            team.name
+                          }
+                        </strong>
+
+                      </div>
+
+                    </div>
+
+                    <div className="team-owner">
 
                       <img
-                        src={team.logo}
-                        alt={team.name}
-                        className="team-logo"
+                        src={
+                          team.owner
+                        }
+                        alt={`${team.id} owner`}
+                        className="owner-image"
                       />
 
+                      <div>
+
+                        <span>
+                          TEAM OWNER
+                        </span>
+
+                        <strong>
+                          OWNER
+                        </strong>
+
+                      </div>
+
                     </div>
 
-                    <div className="team-title">
+                    <div className="team-purse">
 
                       <span>
-                        {team.id}
+                        PURSE REMAINING
                       </span>
 
                       <strong>
-                        {team.name}
+                        ₹
+                        {team.amount.toLocaleString(
+                          "en-IN"
+                        )}
                       </strong>
 
                     </div>
 
-                  </div>
+                    <div className="team-squad-summary">
 
-                  <div className="team-owner">
+                      <div className="team-squad-header">
 
-                    <img
-                      src={team.owner}
-                      alt={`${team.id} owner`}
-                      className="owner-image"
-                    />
+                        <span>
+                          SQUAD
+                        </span>
 
-                    <div>
+                        <strong>
+                          {
+                            soldPlayers.filter(
+                              (player) =>
+                                player.teamId ===
+                                team.id
+                            ).length
+                          }{" "}
+                          /{" "}
+                          {
+                            MAX_SQUAD_SIZE
+                          }
+                        </strong>
 
-                      <span>
-                        TEAM OWNER
-                      </span>
+                      </div>
 
-                      <strong>
-                        OWNER
-                      </strong>
+                      <div className="team-squad-list">
 
-                    </div>
-
-                  </div>
-
-                  <div className="team-purse">
-
-                    <span>
-                      PURSE REMAINING
-                    </span>
-
-                    <strong>
-                      ₹
-                      {team.amount.toLocaleString(
-                        "en-IN"
-                      )}
-                    </strong>
-
-                  </div>
-
-                  <div className="team-squad-summary">
-                    <div className="team-squad-header">
-                      <span>SQUAD</span>
-                      <strong>
-                        {soldPlayers.filter((player) => player.teamId === team.id).length} / {MAX_SQUAD_SIZE}
-                      </strong>
-                    </div>
-                    <div className="team-squad-list">
-                      {soldPlayers.filter((player) => player.teamId === team.id).length > 0 ? (
-                        soldPlayers
-                          .filter((player) => player.teamId === team.id)
-                          .map((player) => (
-                            <span key={player.id}>
-                              {player.playerName} • ₹{player.finalPrice.toLocaleString("en-IN")}
+                        {
+                          soldPlayers.filter(
+                            (player) =>
+                              player.teamId ===
+                              team.id
+                          ).length >
+                          0 ? (
+                            soldPlayers
+                              .filter(
+                                (player) =>
+                                  player.teamId ===
+                                  team.id
+                              )
+                              .map(
+                                (
+                                  player
+                                ) => (
+                                  <span
+                                    key={
+                                      player.id
+                                    }
+                                  >
+                                    {
+                                      player.playerName
+                                    }{" "}
+                                    • ₹
+                                    {player.finalPrice.toLocaleString(
+                                      "en-IN"
+                                    )}
+                                  </span>
+                                )
+                              )
+                          ) : (
+                            <span className="team-squad-empty">
+                              No players bought yet
                             </span>
-                          ))
-                      ) : (
-                        <span className="team-squad-empty">No players bought yet</span>
-                      )}
-                    </div>
-                  </div>
+                          )
+                        }
 
-                  {isHighest &&
-                    !soldTeam && (
-                      <div className="highest-bid-label">
-                        HIGHEST BID
+                      </div>
+
+                    </div>
+
+                    {isHighest &&
+                      !soldTeam && (
+                        <div className="highest-bid-label">
+                          HIGHEST BID
+                        </div>
+                      )}
+
+                    {soldTeam ===
+                      team.id && (
+                      <div className="winner-label">
+                        WINNER
                       </div>
                     )}
 
-                  {soldTeam === team.id && (
-                    <div className="winner-label">
-                      WINNER
-                    </div>
-                  )}
+                    <button
+                      className="bid-button"
+                      onClick={() =>
+                        placeBid(
+                          team.id
+                        )
+                      }
+                      disabled={
+                        readOnly ||
+                        auctionStatus !==
+                          "LIVE" ||
+                        isHighest ||
+                        !canAffordQuickBid
+                      }
+                    >
+                      {readOnly
+                        ? "VIEW ONLY"
+                        : isHighest
+                          ? "LEADING"
+                          : !canAffordQuickBid
+                            ? "INSUFFICIENT PURSE"
+                            : highestBidder
+                              ? "BID +₹500"
+                              : `BID ₹${currentPlayer.basePrice.toLocaleString(
+                                  "en-IN"
+                                )}`}
+                    </button>
 
-                  <button
-                    className="bid-button"
-                    onClick={() => placeBid(team.id)}
-                    disabled={
-                      readOnly ||
-                      auctionStatus !== "LIVE" ||
-                      isHighest ||
-                      !canAffordQuickBid
-                    }
-                  >
-                    {readOnly
-                      ? "VIEW ONLY"
-                      : isHighest
-                        ? "LEADING"
-                        : !canAffordQuickBid
-                          ? "INSUFFICIENT PURSE"
-                          : highestBidder
-                            ? "BID +₹500"
-                            : `BID ₹${currentPlayer.basePrice.toLocaleString("en-IN")}`}
-                  </button>
-
-                </div>
-              );
-            })}
+                  </div>
+                );
+              }
+            )}
 
           </div>
 
@@ -1781,11 +2594,15 @@ const canAffordQuickBid =
               <div className="upcoming-player-info">
 
                 <span>
-                  {nextPlayer.category}
+                  {
+                    nextPlayer.category
+                  }
                 </span>
 
                 <strong>
-                  {nextPlayer.name}
+                  {
+                    nextPlayer.name
+                  }
                 </strong>
 
                 <small>
@@ -1811,52 +2628,98 @@ const canAffordQuickBid =
         =================================================== */}
 
         <section className="auction-player-list-section">
+
           <div className="section-heading-row">
-            <div className="section-label">AUCTION PLAYERS</div>
-            <span className="team-count">{playerQueue.length} PLAYERS</span>
+
+            <div className="section-label">
+              AUCTION PLAYERS
+            </div>
+
+            <span className="team-count">
+              {playerQueue.length} PLAYERS
+            </span>
+
           </div>
 
           <div className="auction-player-list">
-            {playerQueue.map((player, index) => {
-              const soldRecord = soldPlayers.find(
-                (sold) => sold.playerNumber === player.number
-              );
-              const isCurrent = index === currentPlayerIndex;
-              const status = soldRecord
-                ? "SOLD"
-                : isCurrent
-                  ? "LIVE"
-                  : index < currentPlayerIndex
-                    ? "UNSOLD"
-                    : "UPCOMING";
 
-              return (
-                <div
-                  key={player.number}
-                  className={`auction-player-row player-${status.toLowerCase()}`}
-                >
-                  <span className="auction-player-row-number">
-                    {player.number}
-                  </span>
+            {playerQueue.map(
+              (player, index) => {
 
-                  <div className="auction-player-row-info">
-                    <strong>{player.name}</strong>
-                    <span>{player.category} • {player.country}</span>
+                const soldRecord =
+                  soldPlayers.find(
+                    (sold) =>
+                      sold.playerNumber ===
+                      player.number
+                  );
+
+                const isCurrent =
+                  index ===
+                  currentPlayerIndex;
+
+                const status =
+                  soldRecord
+                    ? "SOLD"
+                    : isCurrent
+                      ? "LIVE"
+                      : index <
+                          currentPlayerIndex
+                        ? "UNSOLD"
+                        : "UPCOMING";
+
+                return (
+                  <div
+                    key={
+                      player.number
+                    }
+                    className={`auction-player-row player-${status.toLowerCase()}`}
+                  >
+
+                    <span className="auction-player-row-number">
+                      {player.number}
+                    </span>
+
+                    <div className="auction-player-row-info">
+
+                      <strong>
+                        {
+                          player.name
+                        }
+                      </strong>
+
+                      <span>
+                        {
+                          player.category
+                        }{" "}
+                        •{" "}
+                        {
+                          player.country
+                        }
+                      </span>
+
+                    </div>
+
+                    <span className="auction-player-row-price">
+                      {soldRecord
+                        ? `₹${soldRecord.finalPrice.toLocaleString(
+                            "en-IN"
+                          )}`
+                        : `BASE ₹${player.basePrice.toLocaleString(
+                            "en-IN"
+                          )}`}
+                    </span>
+
+                    <span className="auction-player-row-status">
+                      {status}
+                    </span>
+
                   </div>
+                );
+              }
+            )}
 
-                  <span className="auction-player-row-price">
-                    {soldRecord
-                      ? `₹${soldRecord.finalPrice.toLocaleString("en-IN")}`
-                      : `BASE ₹${player.basePrice.toLocaleString("en-IN")}`}
-                  </span>
-
-                  <span className="auction-player-row-status">
-                    {status}
-                  </span>
-                </div>
-              );
-            })}
           </div>
+
         </section>
 
         {/* ===================================================
@@ -1912,23 +2775,37 @@ const canAffordQuickBid =
 
       {/* =====================================================
           PLAYER SOLD OVERLAY
-
-          The complete SOLD UI has been moved to
-          SoldOverlay.jsx.
       ===================================================== */}
 
-      {soldOverlayOpen && latestSoldPlayer && (
-        <SoldOverlay
-          soldPlayer={latestSoldPlayer}
-          totalPlayersSold={totalPlayersSold}
-          winningTeamSquadSize={winningTeamSquadSize}
-          maxSquadSize={MAX_SQUAD_SIZE}
-          slotsRemaining={slotsRemaining}
-          nextPlayer={nextPlayer}
-          onNextPlayer={handleNextPlayer}
-          readOnly={readOnly}
-        />
-      )}
+      {soldOverlayOpen &&
+        latestSoldPlayer && (
+          <SoldOverlay
+            soldPlayer={
+              latestSoldPlayer
+            }
+            totalPlayersSold={
+              totalPlayersSold
+            }
+            winningTeamSquadSize={
+              winningTeamSquadSize
+            }
+            maxSquadSize={
+              MAX_SQUAD_SIZE
+            }
+            slotsRemaining={
+              slotsRemaining
+            }
+            nextPlayer={
+              nextPlayer
+            }
+            onNextPlayer={
+              handleNextPlayer
+            }
+            readOnly={
+              readOnly
+            }
+          />
+        )}
 
       {/* =====================================================
           MANUAL BID MODAL
@@ -1937,7 +2814,9 @@ const canAffordQuickBid =
       {manualBidOpen && (
         <div
           className="modal-backdrop"
-          onClick={closeManualBid}
+          onClick={
+            closeManualBid
+          }
         >
 
           <div
@@ -1968,7 +2847,9 @@ const canAffordQuickBid =
 
               <button
                 className="modal-close"
-                onClick={closeManualBid}
+                onClick={
+                  closeManualBid
+                }
               >
                 ×
               </button>
@@ -1990,7 +2871,9 @@ const canAffordQuickBid =
 
               <small>
                 Minimum manual bid: ₹
-                {(currentBid + 1).toLocaleString(
+                {(
+                  currentBid + 1
+                ).toLocaleString(
                   "en-IN"
                 )}
               </small>
@@ -2004,12 +2887,20 @@ const canAffordQuickBid =
               </label>
 
               <select
-                value={manualTeam}
-                onChange={(event) => {
+                value={
+                  manualTeam
+                }
+                onChange={(
+                  event
+                ) => {
                   setManualTeam(
-                    event.target.value
+                    event.target
+                      .value
                   );
-                  setManualError("");
+
+                  setManualError(
+                    ""
+                  );
                 }}
               >
 
@@ -2023,18 +2914,30 @@ const canAffordQuickBid =
                       team.id !==
                       highestBidder
                   )
-                  .map((team) => (
-                    <option
-                      key={team.id}
-                      value={team.id}
-                    >
-                      {team.id} —{" "}
-                      {team.name} — Purse ₹
-                      {team.amount.toLocaleString(
-                        "en-IN"
-                      )}
-                    </option>
-                  ))}
+                  .map(
+                    (team) => (
+                      <option
+                        key={
+                          team.id
+                        }
+                        value={
+                          team.id
+                        }
+                      >
+                        {
+                          team.id
+                        }{" "}
+                        —{" "}
+                        {
+                          team.name
+                        }{" "}
+                        — Purse ₹
+                        {team.amount.toLocaleString(
+                          "en-IN"
+                        )}
+                      </option>
+                    )
+                  )}
 
               </select>
 
@@ -2055,18 +2958,29 @@ const canAffordQuickBid =
                 <input
                   type="number"
                   min={
-                    currentBid + 1
+                    currentBid +
+                    1
                   }
                   step="500"
                   placeholder={`${currentBid + 500}`}
-                  value={manualBidAmount}
-                  onChange={(event) => {
+                  value={
+                    manualBidAmount
+                  }
+                  onChange={(
+                    event
+                  ) => {
                     setManualBidAmount(
-                      event.target.value
+                      event.target
+                        .value
                     );
-                    setManualError("");
+
+                    setManualError(
+                      ""
+                    );
                   }}
-                  onKeyDown={(event) => {
+                  onKeyDown={(
+                    event
+                  ) => {
                     if (
                       event.key ===
                       "Enter"
@@ -2093,7 +3007,9 @@ const canAffordQuickBid =
 
             {manualTeam &&
               manualBidAmount &&
-              Number(manualBidAmount) >
+              Number(
+                manualBidAmount
+              ) >
                 currentBid && (
                 <div className="manual-bid-preview">
 
@@ -2104,7 +3020,9 @@ const canAffordQuickBid =
                     </span>
 
                     <strong>
-                      {manualTeam}
+                      {
+                        manualTeam
+                      }
                     </strong>
 
                   </div>
@@ -2150,14 +3068,18 @@ const canAffordQuickBid =
 
               <button
                 className="cancel-button"
-                onClick={closeManualBid}
+                onClick={
+                  closeManualBid
+                }
               >
                 CANCEL
               </button>
 
               <button
                 className="place-manual-button"
-                onClick={placeManualBid}
+                onClick={
+                  placeManualBid
+                }
               >
                 PLACE MANUAL BID
               </button>
@@ -2177,8 +3099,13 @@ const canAffordQuickBid =
         <div
           className="modal-backdrop kept-backdrop"
           onClick={() => {
-            setKeptPlayersOpen(false);
-            setSelectedKeptPlayer(null);
+            setKeptPlayersOpen(
+              false
+            );
+
+            setSelectedKeptPlayer(
+              null
+            );
           }}
         >
 
@@ -2211,8 +3138,13 @@ const canAffordQuickBid =
               <button
                 className="modal-close"
                 onClick={() => {
-                  setKeptPlayersOpen(false);
-                  setSelectedKeptPlayer(null);
+                  setKeptPlayersOpen(
+                    false
+                  );
+
+                  setSelectedKeptPlayer(
+                    null
+                  );
                 }}
               >
                 ×
@@ -2229,10 +3161,15 @@ const canAffordQuickBid =
               <input
                 type="text"
                 placeholder="Search players..."
-                value={playerSearch}
-                onChange={(event) =>
+                value={
+                  playerSearch
+                }
+                onChange={(
+                  event
+                ) =>
                   setPlayerSearch(
-                    event.target.value
+                    event.target
+                      .value
                   )
                 }
               />
@@ -2260,7 +3197,9 @@ const canAffordQuickBid =
                   </div>
 
                   <strong>
-                    {clubMembers.length}
+                    {
+                      clubMembers.length
+                    }
                   </strong>
 
                 </div>
@@ -2270,9 +3209,13 @@ const canAffordQuickBid =
                   {filteredClubMembers.length >
                   0 ? (
                     filteredClubMembers.map(
-                      (player) => (
+                      (
+                        player
+                      ) => (
                         <button
-                          key={player.id}
+                          key={
+                            player.id
+                          }
                           className="kept-player-card"
                           onClick={() =>
                             setSelectedKeptPlayer(
@@ -2294,7 +3237,9 @@ const canAffordQuickBid =
                               />
                             ) : (
                               player.name
-                                .charAt(0)
+                                .charAt(
+                                  0
+                                )
                                 .toUpperCase()
                             )}
 
@@ -2365,9 +3310,13 @@ const canAffordQuickBid =
                   {filteredOutsideParticipants.length >
                   0 ? (
                     filteredOutsideParticipants.map(
-                      (player) => (
+                      (
+                        player
+                      ) => (
                         <button
-                          key={player.id}
+                          key={
+                            player.id
+                          }
                           className="kept-player-card"
                           onClick={() =>
                             setSelectedKeptPlayer(
@@ -2389,7 +3338,9 @@ const canAffordQuickBid =
                               />
                             ) : (
                               player.name
-                                .charAt(0)
+                                .charAt(
+                                  0
+                                )
                                 .toUpperCase()
                             )}
 
@@ -2436,7 +3387,9 @@ const canAffordQuickBid =
               <div>
 
                 <strong>
-                  {totalKeptPlayers}
+                  {
+                    totalKeptPlayers
+                  }
                 </strong>
 
                 <span>
@@ -2447,8 +3400,13 @@ const canAffordQuickBid =
 
               <button
                 onClick={() => {
-                  setKeptPlayersOpen(false);
-                  setSelectedKeptPlayer(null);
+                  setKeptPlayersOpen(
+                    false
+                  );
+
+                  setSelectedKeptPlayer(
+                    null
+                  );
                 }}
               >
                 DONE
@@ -2469,7 +3427,9 @@ const canAffordQuickBid =
         <div
           className="player-details-overlay"
           onClick={() =>
-            setSelectedKeptPlayer(null)
+            setSelectedKeptPlayer(
+              null
+            )
           }
         >
 
@@ -2483,7 +3443,9 @@ const canAffordQuickBid =
             <button
               className="details-close"
               onClick={() =>
-                setSelectedKeptPlayer(null)
+                setSelectedKeptPlayer(
+                  null
+                )
               }
             >
               ×
@@ -2515,7 +3477,9 @@ const canAffordQuickBid =
             </span>
 
             <h2>
-              {selectedKeptPlayer.name}
+              {
+                selectedKeptPlayer.name
+              }
             </h2>
 
             <span className="details-country">
