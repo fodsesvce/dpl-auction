@@ -21,10 +21,11 @@ import {
 import { supabase } from "../../lib/supabase";
 import "./TeamOwnerDashboard.css";
 import players from "../../data/players";
+import { getResumeUrl } from "../../data/resumes";
 
 const MAX_SQUAD_SIZE = 5;
 const STARTING_PURSE = 10000;
-const BID_DURATION_SECONDS = 120;
+const BID_DURATION_SECONDS = 60;
 
 /* =========================================================
    PLAYER QUEUE — SINGLE SOURCE OF TRUTH
@@ -941,6 +942,9 @@ function TeamOwnerDashboard({
   const playerImage =
     getPlayerImage(currentPlayer);
 
+  const playerResumeUrl =
+    getResumeUrl(currentPlayer);
+
   const displayPlayerId =
     currentPlayer?.playerNumber ??
     getPlayerId(currentPlayer);
@@ -1301,6 +1305,45 @@ function TeamOwnerDashboard({
           letter-spacing: 0.08em;
           cursor: pointer;
         }
+        .team-owner-player-resume {
+  margin-top: 16px;
+}
+
+.team-owner-player-resume-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 15px;
+  border: 1px solid rgba(0, 230, 118, 0.28);
+  border-radius: 6px;
+  background: rgba(0, 230, 118, 0.07);
+  color: #00e676;
+  text-decoration: none;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  transition: 0.2s ease;
+}
+
+.team-owner-player-resume-button:hover {
+  border-color: rgba(0, 230, 118, 0.55);
+  background: rgba(0, 230, 118, 0.13);
+}
+
+.team-owner-player-resume-unavailable {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 15px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: #646d78;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
         @media (max-width: 900px) {
           .team-owner-player-list-button span { display: none; }
           .team-owner-player-list-button { padding: 0 10px; }
@@ -1549,11 +1592,28 @@ function TeamOwnerDashboard({
                 </div>
 
                 <div className="team-owner-base-price">
-                  <span>BASE PRICE</span>
-                  <strong>
-                    {formatCurrency(playerBasePrice)}
-                  </strong>
-                </div>
+  <span>BASE PRICE</span>
+  <strong>
+    {formatCurrency(playerBasePrice)}
+  </strong>
+</div>
+
+<div className="team-owner-player-resume">
+  {playerResumeUrl ? (
+    <a
+      href={playerResumeUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="team-owner-player-resume-button"
+    >
+      VIEW RESUME
+    </a>
+  ) : (
+    <span className="team-owner-player-resume-unavailable">
+      RESUME NOT AVAILABLE
+    </span>
+  )}
+</div>
               </div>
             </div>
 
