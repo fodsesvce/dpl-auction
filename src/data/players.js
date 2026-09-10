@@ -72,17 +72,17 @@ const outsideParticipants = [
     image: "/assets/players/ALAGU MANIKANDAN S .jpeg",
     basePrice: 2000,
   },
-  
   {
     id: "OUT-02",
-    name: "Prakash M",
-    registerNumber: "2127230502074",
+    name: "ASWIN KUMAR V",
+    registerNumber: "2127250502014",
     department: "AD",
-    year: "4th Year",
+    year: "2nd Year",
     category: "Outside Participant",
-    image: "/assets/players/Prakash M.png",
-    basePrice: 1250,
+    image: "/assets/players/ASWIN KUMAR V.jpg",
+    basePrice: 500,
   },
+  
   {
     id: "OUT-03",
     name: "Kausik T",
@@ -175,13 +175,13 @@ const outsideParticipants = [
   },
   {
     id: "OUT-12",
-    name: "ASWIN KUMAR V",
-    registerNumber: "2127250502014",
+    name: "Prakash M",
+    registerNumber: "2127230502074",
     department: "AD",
-    year: "2nd Year",
+    year: "4th Year",
     category: "Outside Participant",
-    image: "/assets/players/ASWIN KUMAR V.jpg",
-    basePrice: 500,
+    image: "/assets/players/Prakash M.png",
+    basePrice: 1250,
   },
   {
     id: "OUT-13",
