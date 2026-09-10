@@ -10,6 +10,7 @@ import {
   Clock3,
   LogOut,
   Radio,
+  Search,
   ShieldCheck,
   Users,
   Wallet,
@@ -19,78 +20,35 @@ import {
 
 import { supabase } from "../../lib/supabase";
 import "./TeamOwnerDashboard.css";
+import players from "../../data/players";
 
 const MAX_SQUAD_SIZE = 5;
 const STARTING_PURSE = 10000;
+const BID_DURATION_SECONDS = 120;
 
-/*
- * The operator currently uses this auction queue.
- * The live auction state stores the currentPlayerIndex,
- * while player details themselves are maintained by the
- * auction application.
- */
-const AUCTION_PLAYERS = [
-  {
-    id: 7,
-    playerNumber: "#07",
-    playerName: "ARJUN SHARMA",
-    category: "BATSMAN",
-    age: 21,
-    style: "RIGHT HAND",
-    country: "INDIA",
-    basePrice: 500,
-    set: "OUTSIDE PARTICIPANTS",
-    image: null,
-  },
-  {
-    id: 8,
-    playerNumber: "#08",
-    playerName: "ADITYA RAJ",
-    category: "BOWLER",
-    age: 22,
-    style: "RIGHT HAND",
-    country: "INDIA",
-    basePrice: 500,
-    set: "OUTSIDE PARTICIPANTS",
-    image: null,
-  },
-  {
-    id: 9,
-    playerNumber: "#09",
-    playerName: "KARAN PATEL",
-    category: "BATSMAN",
-    age: 21,
-    style: "RIGHT HAND",
-    country: "INDIA",
-    basePrice: 500,
-    set: "OUTSIDE PARTICIPANTS",
-    image: null,
-  },
-  {
-    id: 10,
-    playerNumber: "#10",
-    playerName: "ROHAN DAS",
-    category: "ALL ROUNDER",
-    age: 22,
-    style: "RIGHT HAND",
-    country: "INDIA",
-    basePrice: 500,
-    set: "OUTSIDE PARTICIPANTS",
-    image: null,
-  },
-  {
-    id: 11,
-    playerNumber: "#11",
-    playerName: "SANJAY KUMAR",
-    category: "BATSMAN",
-    age: 22,
-    style: "RIGHT HAND",
-    country: "INDIA",
-    basePrice: 500,
-    set: "OUTSIDE PARTICIPANTS",
-    image: null,
-  },
-];
+/* =========================================================
+   PLAYER QUEUE — SINGLE SOURCE OF TRUTH
+
+   Both the operator and team-owner portals use players.js.
+   This prevents old hard-coded names/prices from appearing
+   in the owner portal after players.js is updated.
+========================================================= */
+
+const AUCTION_PLAYERS = players.map((player, index) => ({
+  ...player,
+  playerNumber: `#${String(index + 1).padStart(2, "0")}`,
+  playerName: player.name,
+  country: "INDIA",
+  basePrice: Number(player.basePrice ?? 0),
+  set:
+    player.category === "Club Member"
+      ? "CLUB MEMBERS"
+      : "OUTSIDE PARTICIPANTS",
+}));
+
+/* =========================================================
+   FALLBACK TEAMS
+========================================================= */
 
 const FALLBACK_TEAMS = [
   {
@@ -98,7 +56,7 @@ const FALLBACK_TEAMS = [
     name: "MELBOURNE TECH STARS",
     logo: "/assets/teams/team-01.png",
     owner: "/assets/owners/team-01.webp",
-    amount: 10000,
+    amount: STARTING_PURSE,
     shortName: "STARS",
   },
   {
@@ -106,7 +64,7 @@ const FALLBACK_TEAMS = [
     name: "CANBERRA CODE COMETS",
     logo: "/assets/teams/team-02.png",
     owner: "/assets/owners/team-02.webp",
-    amount: 10000,
+    amount: STARTING_PURSE,
     shortName: "COMETS",
   },
   {
@@ -114,7 +72,7 @@ const FALLBACK_TEAMS = [
     name: "TOWNSVILLE TECH TITANS",
     logo: "/assets/teams/team-03.png",
     owner: "/assets/owners/team-03.webp",
-    amount: 10000,
+    amount: STARTING_PURSE,
     shortName: "TITANS",
   },
   {
@@ -122,7 +80,7 @@ const FALLBACK_TEAMS = [
     name: "SYDNEY CLOUD THUNDER",
     logo: "/assets/teams/team-04.png",
     owner: "/assets/owners/team-04.webp",
-    amount: 10000,
+    amount: STARTING_PURSE,
     shortName: "THUNDER",
   },
   {
@@ -130,7 +88,7 @@ const FALLBACK_TEAMS = [
     name: "DARWIN DATA CYCLONES",
     logo: "/assets/teams/team-05.png",
     owner: "/assets/owners/team-05.webp",
-    amount: 10000,
+    amount: STARTING_PURSE,
     shortName: "CYCLONES",
   },
   {
@@ -138,7 +96,7 @@ const FALLBACK_TEAMS = [
     name: "SYDNEY SILICON SIXERS",
     logo: "/assets/teams/team-06.png",
     owner: "/assets/owners/team-06.webp",
-    amount: 10000,
+    amount: STARTING_PURSE,
     shortName: "SIXERS",
   },
   {
@@ -146,7 +104,7 @@ const FALLBACK_TEAMS = [
     name: "GEELONG GENGARS",
     logo: "/assets/teams/team-07.png",
     owner: "/assets/owners/team-07.webp",
-    amount: 10000,
+    amount: STARTING_PURSE,
     shortName: "GENGARS",
   },
   {
@@ -154,7 +112,7 @@ const FALLBACK_TEAMS = [
     name: "BRISBANE BYTE HEAT",
     logo: "/assets/teams/team-08.png",
     owner: "/assets/owners/team-08.webp",
-    amount: 10000,
+    amount: STARTING_PURSE,
     shortName: "BYTE HEAT",
   },
   {
@@ -162,7 +120,7 @@ const FALLBACK_TEAMS = [
     name: "PERTH PIXEL SCORCHERS",
     logo: "/assets/teams/team-09.png",
     owner: "/assets/owners/team-09.webp",
-    amount: 10000,
+    amount: STARTING_PURSE,
     shortName: "SCORCHERS",
   },
   {
@@ -170,21 +128,22 @@ const FALLBACK_TEAMS = [
     name: "NEWCASTLE NETWORK BLAZERS",
     logo: "/assets/teams/team-10.png",
     owner: "/assets/owners/team-10.webp",
-    amount: 10000,
+    amount: STARTING_PURSE,
     shortName: "BLAZERS",
   },
 ];
 
+/* =========================================================
+   HELPERS
+========================================================= */
+
 const formatCurrency = (value) => {
   const numericValue = Number(value ?? 0);
-
   return `₹${numericValue.toLocaleString("en-IN")}`;
 };
 
 const getTeamId = (team) => {
-  if (!team) {
-    return "";
-  }
+  if (!team) return "";
 
   return String(
     team.id ??
@@ -196,9 +155,7 @@ const getTeamId = (team) => {
 };
 
 const getTeamName = (team) => {
-  if (!team) {
-    return "TEAM";
-  }
+  if (!team) return "TEAM";
 
   return (
     team.name ??
@@ -210,9 +167,7 @@ const getTeamName = (team) => {
 };
 
 const getTeamLogo = (team) => {
-  if (!team) {
-    return null;
-  }
+  if (!team) return null;
 
   return (
     team.logo ??
@@ -223,24 +178,20 @@ const getTeamLogo = (team) => {
 };
 
 const getSquadPlayers = (team) => {
-  if (!team) {
-    return [];
-  }
+  if (!team) return [];
 
-  const players =
+  const squad =
     team.players ??
     team.squad ??
     team.squadPlayers ??
     team.squad_players ??
     [];
 
-  return Array.isArray(players) ? players : [];
+  return Array.isArray(squad) ? squad : [];
 };
 
 const getPlayerId = (player) => {
-  if (!player) {
-    return "";
-  }
+  if (!player) return "";
 
   return String(
     player.id ??
@@ -253,9 +204,7 @@ const getPlayerId = (player) => {
 };
 
 const getPlayerName = (player) => {
-  if (!player) {
-    return "No player";
-  }
+  if (!player) return "No player";
 
   return (
     player.name ??
@@ -266,9 +215,7 @@ const getPlayerName = (player) => {
 };
 
 const getPlayerRole = (player) => {
-  if (!player) {
-    return "PLAYER";
-  }
+  if (!player) return "PLAYER";
 
   return (
     player.role ??
@@ -279,9 +226,7 @@ const getPlayerRole = (player) => {
 };
 
 const getPlayerBasePrice = (player) => {
-  if (!player) {
-    return 0;
-  }
+  if (!player) return 0;
 
   return Number(
     player.basePrice ??
@@ -293,9 +238,7 @@ const getPlayerBasePrice = (player) => {
 };
 
 const getPlayerImage = (player) => {
-  if (!player) {
-    return null;
-  }
+  if (!player) return null;
 
   return (
     player.image ??
@@ -306,9 +249,7 @@ const getPlayerImage = (player) => {
 };
 
 const getSoldPrice = (player) => {
-  if (!player) {
-    return 0;
-  }
+  if (!player) return 0;
 
   return Number(
     player.soldPrice ??
@@ -321,9 +262,7 @@ const getSoldPrice = (player) => {
 };
 
 const getSoldTeam = (player) => {
-  if (!player) {
-    return "";
-  }
+  if (!player) return "";
 
   return String(
     player.soldTeam ??
@@ -336,9 +275,7 @@ const getSoldTeam = (player) => {
 };
 
 const normalizeAuctionState = (rawState) => {
-  if (!rawState) {
-    return {};
-  }
+  if (!rawState) return {};
 
   if (
     typeof rawState === "object" &&
@@ -351,63 +288,110 @@ const normalizeAuctionState = (rawState) => {
   return rawState;
 };
 
+const getCanonicalPlayer = (rawPlayer) => {
+  if (!rawPlayer) return null;
+
+  const rawId = String(
+    rawPlayer.id ??
+      rawPlayer.player_id ??
+      rawPlayer.playerId ??
+      ""
+  ).trim();
+
+  if (rawId) {
+    const byId = AUCTION_PLAYERS.find(
+      (player) => String(player.id) === rawId
+    );
+
+    if (byId) return byId;
+  }
+
+  const rawName = String(
+    rawPlayer.name ??
+      rawPlayer.player_name ??
+      rawPlayer.playerName ??
+      ""
+  )
+    .trim()
+    .toLowerCase();
+
+  if (rawName) {
+    const byName = AUCTION_PLAYERS.find(
+      (player) =>
+        String(player.name ?? "")
+          .trim()
+          .toLowerCase() === rawName
+    );
+
+    if (byName) return byName;
+  }
+
+  return null;
+};
+
+/* =========================================================
+   COMPONENT
+========================================================= */
+
 function TeamOwnerDashboard({
   currentUser,
   onLogout,
   authError,
 }) {
-  const [auctionState, setAuctionState] =
-    useState(null);
-
+  const [auctionState, setAuctionState] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [connectionError, setConnectionError] = useState("");
 
-  const [connectionError, setConnectionError] =
+  const [playerListOpen, setPlayerListOpen] =
+    useState(false);
+  const [playerListSearch, setPlayerListSearch] =
     useState("");
+  const [playerListFilter, setPlayerListFilter] =
+    useState("ALL");
 
-  const loadAuctionState = useCallback(
-    async () => {
-      try {
-        setConnectionError("");
+  /* =======================================================
+     LOAD LIVE AUCTION STATE
+  ======================================================= */
 
-        const { data, error } = await supabase
-          .from("auction_state")
-          .select("state, updated_at")
-          .eq("id", 1)
-          .maybeSingle();
+  const loadAuctionState = useCallback(async () => {
+    try {
+      setConnectionError("");
 
-        if (error) {
-          throw error;
-        }
+      const { data, error } = await supabase
+        .from("auction_state")
+        .select("state, updated_at")
+        .eq("id", 1)
+        .maybeSingle();
 
-        if (data?.state) {
-          setAuctionState(
-            normalizeAuctionState(data.state)
-          );
-        }
-      } catch (error) {
-        setConnectionError(
-          error.message ||
-            "Unable to connect to the live auction."
+      if (error) throw error;
+
+      if (data?.state) {
+        setAuctionState(
+          normalizeAuctionState(data.state)
         );
-      } finally {
-        setLoading(false);
       }
-    },
-    []
-  );
+    } catch (error) {
+      setConnectionError(
+        error.message ||
+          "Unable to connect to the live auction."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /* =======================================================
+     REALTIME SYNC
+  ======================================================= */
 
   useEffect(() => {
     let mounted = true;
 
     const initialize = async () => {
       await loadAuctionState();
-
-      if (!mounted) {
-        return;
-      }
     };
 
-    initialize();
+    void initialize();
 
     const channel = supabase
       .channel("team-owner-auction-state")
@@ -420,26 +404,19 @@ function TeamOwnerDashboard({
           filter: "id=eq.1",
         },
         (payload) => {
-          if (!mounted) {
+          if (!mounted || !payload.new?.state) {
             return;
           }
 
-          if (payload.new?.state) {
-            setAuctionState(
-              normalizeAuctionState(
-                payload.new.state
-              )
-            );
-
-            setConnectionError("");
-            setLoading(false);
-          }
+          setAuctionState(
+            normalizeAuctionState(payload.new.state)
+          );
+          setConnectionError("");
+          setLoading(false);
         }
       )
       .subscribe((status) => {
-        if (!mounted) {
-          return;
-        }
+        if (!mounted) return;
 
         if (status === "SUBSCRIBED") {
           setConnectionError("");
@@ -461,6 +438,10 @@ function TeamOwnerDashboard({
     };
   }, [loadAuctionState]);
 
+  /* =======================================================
+     TEAMS
+  ======================================================= */
+
   const teams = useMemo(() => {
     const stateTeams = auctionState?.teams;
 
@@ -468,38 +449,49 @@ function TeamOwnerDashboard({
       return FALLBACK_TEAMS;
     }
 
-    return stateTeams;
+    return stateTeams.map((team) => {
+      const teamAssetId = String(
+        team.id ?? ""
+      )
+        .trim()
+        .replace(/^TEAM\s+/i, "team-")
+        .toLowerCase();
+
+      return {
+        ...team,
+        logo:
+          team.logo ||
+          `/assets/teams/${teamAssetId}.png`,
+        owner:
+          team.owner ||
+          `/assets/owners/${teamAssetId}.webp`,
+      };
+    });
   }, [auctionState]);
 
+  /* =======================================================
+     CURRENT TEAM
+  ======================================================= */
+
   const teamId = useMemo(
-    () =>
-      String(
-        currentUser?.team_id ?? ""
-      ).trim(),
+    () => String(currentUser?.team_id ?? "").trim(),
     [currentUser]
   );
 
   const myTeam = useMemo(() => {
-    if (!teamId) {
-      return null;
-    }
-
-    const normalizedTeamId =
-      teamId.toLowerCase();
+    if (!teamId) return null;
 
     return (
       teams.find(
         (team) =>
           getTeamId(team).toLowerCase() ===
-          normalizedTeamId
+          teamId.toLowerCase()
       ) ?? null
     );
   }, [teamId, teams]);
 
   const fallbackTeam = useMemo(() => {
-    if (!teamId) {
-      return null;
-    }
+    if (!teamId) return null;
 
     return (
       FALLBACK_TEAMS.find(
@@ -510,57 +502,40 @@ function TeamOwnerDashboard({
     );
   }, [teamId]);
 
-  const displayTeam =
-    myTeam ?? fallbackTeam;
+  const displayTeam = myTeam ?? fallbackTeam;
+  const teamName = getTeamName(displayTeam);
+  const teamLogo = getTeamLogo(displayTeam);
 
-  const teamName = getTeamName(
-    displayTeam
-  );
+  /* =======================================================
+     SQUAD
+  ======================================================= */
 
-  const teamLogo =
-    getTeamLogo(displayTeam);
-
-  /*
-   * Build the squad from the actual soldPlayers
-   * structure stored by the operator.
-   */
   const squadPlayers = useMemo(() => {
-    const players =
-      getSquadPlayers(myTeam);
+    const playersFromTeam = getSquadPlayers(myTeam);
 
-    if (players.length > 0) {
-      return players;
+    if (playersFromTeam.length > 0) {
+      return playersFromTeam;
     }
 
-    const soldPlayers =
-      auctionState?.soldPlayers;
+    const soldPlayers = auctionState?.soldPlayers;
 
     if (!Array.isArray(soldPlayers)) {
       return [];
     }
 
-    return soldPlayers.filter((player) => {
-      const soldTeam = getSoldTeam(player);
-
-      return (
-        soldTeam.toLowerCase() ===
+    return soldPlayers.filter(
+      (player) =>
+        getSoldTeam(player).toLowerCase() ===
         teamId.toLowerCase()
-      );
-    });
-  }, [
-    myTeam,
-    auctionState,
-    teamId,
-  ]);
+    );
+  }, [myTeam, auctionState, teamId]);
 
-  const squadCount =
-    squadPlayers.length;
+  const squadCount = squadPlayers.length;
 
-  /*
-   * IMPORTANT:
-   * The real auction_state stores remaining purse
-   * as `amount`.
-   */
+  /* =======================================================
+     PURSE
+  ======================================================= */
+
   const purse = useMemo(() => {
     if (myTeam) {
       const possiblePurse =
@@ -576,10 +551,7 @@ function TeamOwnerDashboard({
         possiblePurse !== undefined &&
         possiblePurse !== null
       ) {
-        return Math.max(
-          0,
-          Number(possiblePurse)
-        );
+        return Math.max(0, Number(possiblePurse));
       }
     }
 
@@ -594,23 +566,19 @@ function TeamOwnerDashboard({
     );
   }, [myTeam, squadPlayers]);
 
-  const spent = Math.max(
-    0,
-    STARTING_PURSE - purse
-  );
-
+  const spent = Math.max(0, STARTING_PURSE - purse);
   const slotsRemaining = Math.max(
     0,
     MAX_SQUAD_SIZE - squadCount
   );
 
-  /*
-   * The database does not currently store
-   * `currentPlayer`.
-   *
-   * It stores `currentPlayerIndex`, so resolve
-   * the active player from the auction queue.
-   */
+  /* =======================================================
+     CURRENT PLAYER
+
+     IMPORTANT: currentPlayerIndex comes from Supabase, but
+     player details always come from players.js.
+  ======================================================= */
+
   const currentPlayer = useMemo(() => {
     const index = Number(
       auctionState?.currentPlayerIndex
@@ -624,10 +592,16 @@ function TeamOwnerDashboard({
       return AUCTION_PLAYERS[index];
     }
 
-    /*
-     * As a secondary fallback, try to recover the
-     * current player name from the latest ticker.
-     */
+    const remotePlayer =
+      auctionState?.currentPlayer;
+
+    const canonicalPlayer =
+      getCanonicalPlayer(remotePlayer);
+
+    if (canonicalPlayer) {
+      return canonicalPlayer;
+    }
+
     const tickerMessages =
       auctionState?.tickerMessages;
 
@@ -652,15 +626,16 @@ function TeamOwnerDashboard({
           match?.[1]?.trim();
 
         if (playerName) {
-          const matchedPlayer =
+          const canonicalFromTicker =
             AUCTION_PLAYERS.find(
               (player) =>
-                player.playerName.toLowerCase() ===
+                player.playerName
+                  .toLowerCase() ===
                 playerName.toLowerCase()
             );
 
-          if (matchedPlayer) {
-            return matchedPlayer;
+          if (canonicalFromTicker) {
+            return canonicalFromTicker;
           }
         }
       }
@@ -669,11 +644,9 @@ function TeamOwnerDashboard({
     return null;
   }, [auctionState]);
 
-  const currentBid = Number(
-    auctionState?.currentBid ??
-      auctionState?.current_bid ??
-      0
-  );
+  /* =======================================================
+     LIVE AUCTION VALUES
+  ======================================================= */
 
   const highestBidder = String(
     auctionState?.highestBidder ??
@@ -683,6 +656,23 @@ function TeamOwnerDashboard({
       ""
   );
 
+  const storedCurrentBid = Number(
+    auctionState?.currentBid ??
+      auctionState?.current_bid ??
+      getPlayerBasePrice(currentPlayer)
+  );
+
+  /*
+   * If nobody has bid on the current player yet, the current
+   * bid must always equal the canonical base price from
+   * players.js. This also fixes older Supabase state that may
+   * still contain a previous base price such as ₹500.
+   */
+  const currentBid =
+    !highestBidder && currentPlayer
+      ? getPlayerBasePrice(currentPlayer)
+      : storedCurrentBid;
+
   const auctionStatus = String(
     auctionState?.auctionStatus ??
       auctionState?.auction_status ??
@@ -690,11 +680,62 @@ function TeamOwnerDashboard({
       "waiting"
   ).toLowerCase();
 
-  const timerRemaining = Number(
+  const timerStartedAt = Number(
+    auctionState?.timerStartedAt ??
+      auctionState?.timer_started_at ??
+      0
+  );
+
+  const persistedTimerRemaining = Number(
     auctionState?.bidTimeRemaining ??
       auctionState?.bid_time_remaining ??
       0
   );
+
+  const [liveTimerRemaining, setLiveTimerRemaining] =
+    useState(persistedTimerRemaining);
+
+  useEffect(() => {
+    const calculateRemaining = () => {
+      const isAuctionLive =
+        auctionStatus === "live" ||
+        auctionStatus === "bidding" ||
+        auctionStatus === "active";
+
+      if (!isAuctionLive || !timerStartedAt) {
+        setLiveTimerRemaining(
+          persistedTimerRemaining
+        );
+        return;
+      }
+
+      const remaining = Math.max(
+        0,
+        BID_DURATION_SECONDS -
+          Math.floor(
+            (Date.now() - timerStartedAt) /
+              1000
+          )
+      );
+
+      setLiveTimerRemaining(remaining);
+    };
+
+    calculateRemaining();
+
+    const interval = setInterval(
+      calculateRemaining,
+      1000
+    );
+
+    return () => clearInterval(interval);
+  }, [
+    auctionStatus,
+    timerStartedAt,
+    persistedTimerRemaining,
+  ]);
+
+  const timerRemaining = liveTimerRemaining;
 
   const soldOverlayOpen = Boolean(
     auctionState?.soldOverlayOpen ??
@@ -717,7 +758,9 @@ function TeamOwnerDashboard({
       ? "PLAYER SOLD"
       : auctionStatus === "paused"
         ? "AUCTION PAUSED"
-        : "WAITING";
+        : auctionStatus === "ended"
+          ? "AUCTION ENDED"
+          : "WAITING";
 
   const statusClass = isLive
     ? "live"
@@ -728,6 +771,169 @@ function TeamOwnerDashboard({
   const currentBidderIsUs =
     highestBidder.toLowerCase() ===
     teamId.toLowerCase();
+
+  /* =======================================================
+     PLAYER LIST
+
+     The owner portal gets the complete player list directly
+     from players.js. Auction state is used only to show the
+     live status / sold information.
+  ======================================================= */
+
+  const playerListRows = useMemo(() => {
+    const soldPlayers = Array.isArray(
+      auctionState?.soldPlayers
+    )
+      ? auctionState.soldPlayers
+      : [];
+
+    const currentIndex = Number(
+      auctionState?.currentPlayerIndex
+    );
+
+    const search = playerListSearch
+      .trim()
+      .toLowerCase();
+
+    return AUCTION_PLAYERS.map((player, index) => {
+      const soldRecord = soldPlayers.find((sold) => {
+        const soldId = getPlayerId(sold);
+        const soldNumber = String(
+          sold?.playerNumber ??
+            sold?.player_number ??
+            ""
+        );
+        const soldName = getPlayerName(sold)
+          .trim()
+          .toLowerCase();
+
+        return (
+          (soldId && soldId === String(player.id)) ||
+          (soldNumber &&
+            soldNumber === String(player.playerNumber)) ||
+          (soldName &&
+            soldName ===
+              String(player.name)
+                .trim()
+                .toLowerCase())
+        );
+      });
+
+      let status = "UPCOMING";
+
+      if (soldRecord) {
+        status = "SOLD";
+      } else if (
+        Number.isInteger(currentIndex) &&
+        index === currentIndex
+      ) {
+        status = "LIVE";
+      } else if (
+        Number.isInteger(currentIndex) &&
+        index < currentIndex
+      ) {
+        status = "UNSOLD";
+      }
+
+      return {
+        ...player,
+        status,
+        soldRecord,
+      };
+    }).filter((player) => {
+      const matchesSearch =
+        !search ||
+        String(player.name)
+          .toLowerCase()
+          .includes(search) ||
+        String(player.department ?? "")
+          .toLowerCase()
+          .includes(search) ||
+        String(player.year ?? "")
+          .toLowerCase()
+          .includes(search);
+
+      const matchesFilter =
+        playerListFilter === "ALL" ||
+        player.status === playerListFilter;
+
+      return matchesSearch && matchesFilter;
+    });
+  }, [
+    auctionState,
+    playerListFilter,
+    playerListSearch,
+  ]);
+
+  const playerListCounts = useMemo(() => {
+    const soldPlayers = Array.isArray(
+      auctionState?.soldPlayers
+    )
+      ? auctionState.soldPlayers
+      : [];
+
+    const currentIndex = Number(
+      auctionState?.currentPlayerIndex
+    );
+
+    let sold = 0;
+    let live = 0;
+    let unsold = 0;
+    let upcoming = 0;
+
+    AUCTION_PLAYERS.forEach((player, index) => {
+      const soldRecord = soldPlayers.find((soldPlayer) => {
+        const soldId = getPlayerId(soldPlayer);
+        const soldNumber = String(
+          soldPlayer?.playerNumber ??
+            soldPlayer?.player_number ??
+            ""
+        );
+        const soldName = getPlayerName(soldPlayer)
+          .trim()
+          .toLowerCase();
+
+        return (
+          (soldId && soldId === String(player.id)) ||
+          (soldNumber &&
+            soldNumber === String(player.playerNumber)) ||
+          (soldName &&
+            soldName ===
+              String(player.name)
+                .trim()
+                .toLowerCase())
+        );
+      });
+
+      if (soldRecord) {
+        sold += 1;
+      } else if (
+        Number.isInteger(currentIndex) &&
+        index === currentIndex
+      ) {
+        live += 1;
+      } else if (
+        Number.isInteger(currentIndex) &&
+        index < currentIndex
+      ) {
+        unsold += 1;
+      } else {
+        upcoming += 1;
+      }
+    });
+
+    return {
+      all: AUCTION_PLAYERS.length,
+      sold,
+      live,
+      unsold,
+      upcoming,
+    };
+  }, [auctionState]);
+
+  /* =======================================================
+     DISPLAY VALUES
+  ======================================================= */
 
   const playerBasePrice =
     getPlayerBasePrice(currentPlayer);
@@ -753,6 +959,10 @@ function TeamOwnerDashboard({
     }
   };
 
+  /* =======================================================
+     LOADING
+  ======================================================= */
+
   if (loading) {
     return (
       <div className="team-owner-page">
@@ -775,8 +985,346 @@ function TeamOwnerDashboard({
     );
   }
 
+  /* =======================================================
+     RENDER
+  ======================================================= */
+
   return (
     <div className="team-owner-page">
+
+      <style>{`
+        .team-owner-player-list-button {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          height: 40px;
+          padding: 0 13px;
+          border: 1px solid rgba(255,255,255,0.10);
+          background: rgba(255,255,255,0.025);
+          color: #f2f4f7;
+          border-radius: 7px;
+          font: inherit;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          cursor: pointer;
+          transition: 0.2s ease;
+        }
+        .team-owner-player-list-button:hover {
+          border-color: rgba(0,230,118,0.35);
+          background: rgba(0,230,118,0.07);
+          color: #00e676;
+        }
+        .team-owner-player-list-button strong {
+          min-width: 22px;
+          height: 22px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.08);
+          font-size: 10px;
+        }
+        .team-owner-player-list-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+          background: rgba(0,0,0,0.78);
+          backdrop-filter: blur(8px);
+        }
+        .team-owner-player-list-modal {
+          width: min(1180px, 100%);
+          max-height: min(88vh, 900px);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          border: 1px solid rgba(255,255,255,0.10);
+          border-radius: 12px;
+          background: #0b0e12;
+          box-shadow: 0 30px 100px rgba(0,0,0,0.55);
+        }
+        .team-owner-player-list-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 20px;
+          padding: 24px 26px 20px;
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .team-owner-player-list-header span {
+          color: #727b88;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: 0.16em;
+        }
+        .team-owner-player-list-header h2 {
+          margin: 5px 0 4px;
+          color: #f5f7fa;
+          font-size: 27px;
+          line-height: 1.1;
+        }
+        .team-owner-player-list-header p {
+          margin: 0;
+          color: #747d89;
+          font-size: 12px;
+        }
+        .team-owner-player-list-close {
+          width: 38px;
+          height: 38px;
+          flex: 0 0 auto;
+          display: grid;
+          place-items: center;
+          border: 1px solid rgba(255,255,255,0.09);
+          border-radius: 7px;
+          background: rgba(255,255,255,0.025);
+          color: #aab1bb;
+          cursor: pointer;
+        }
+        .team-owner-player-list-close:hover {
+          color: #fff;
+          background: rgba(255,255,255,0.07);
+        }
+        .team-owner-player-list-summary {
+          display: flex;
+          gap: 8px;
+          padding: 14px 26px;
+          border-bottom: 1px solid rgba(255,255,255,0.07);
+          overflow-x: auto;
+        }
+        .team-owner-player-list-summary button {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          white-space: nowrap;
+          padding: 8px 11px;
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 6px;
+          background: transparent;
+          color: #818a96;
+          font: inherit;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: 0.08em;
+          cursor: pointer;
+        }
+        .team-owner-player-list-summary button strong {
+          color: #dce1e7;
+        }
+        .team-owner-player-list-summary button.active,
+        .team-owner-player-list-summary button:hover {
+          border-color: rgba(0,230,118,0.30);
+          background: rgba(0,230,118,0.06);
+          color: #00e676;
+        }
+        .team-owner-player-list-toolbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 14px;
+          padding: 14px 26px;
+        }
+        .team-owner-player-list-search {
+          min-width: 260px;
+          flex: 1;
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          padding: 0 12px;
+          height: 40px;
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 7px;
+          background: rgba(255,255,255,0.025);
+          color: #69727e;
+        }
+        .team-owner-player-list-search input {
+          width: 100%;
+          border: 0;
+          outline: 0;
+          background: transparent;
+          color: #f2f4f7;
+          font: inherit;
+          font-size: 12px;
+        }
+        .team-owner-player-list-search input::placeholder {
+          color: #59616c;
+        }
+        .team-owner-player-list-toolbar > span {
+          color: #69727e;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          white-space: nowrap;
+        }
+        .team-owner-player-list-table-wrap {
+          margin: 0 26px;
+          overflow: hidden;
+          border: 1px solid rgba(255,255,255,0.07);
+          border-radius: 8px;
+        }
+        .team-owner-player-list-table-head,
+        .team-owner-player-list-row {
+          display: grid;
+          grid-template-columns: minmax(250px, 1.7fr) minmax(180px, 1fr) 150px 110px;
+          align-items: center;
+          column-gap: 18px;
+        }
+        .team-owner-player-list-table-head {
+          min-height: 38px;
+          padding: 0 16px;
+          background: rgba(255,255,255,0.025);
+          color: #626b77;
+          font-size: 9px;
+          font-weight: 900;
+          letter-spacing: 0.12em;
+        }
+        .team-owner-player-list-table-body {
+          max-height: 48vh;
+          overflow-y: auto;
+        }
+        .team-owner-player-list-row {
+          min-height: 68px;
+          padding: 9px 16px;
+          border-top: 1px solid rgba(255,255,255,0.055);
+        }
+        .team-owner-player-list-row:hover {
+          background: rgba(255,255,255,0.018);
+        }
+        .team-owner-player-list-player {
+          display: flex;
+          align-items: center;
+          gap: 11px;
+          min-width: 0;
+        }
+        .team-owner-player-list-avatar {
+          width: 43px;
+          height: 43px;
+          min-width: 43px;
+          overflow: hidden;
+          display: grid;
+          place-items: center;
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 50%;
+          background: #151a20;
+          color: #6f7884;
+        }
+        .team-owner-player-list-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+        .team-owner-player-list-player > div:last-child {
+          min-width: 0;
+        }
+        .team-owner-player-list-player strong,
+        .team-owner-player-list-details strong,
+        .team-owner-player-list-price strong {
+          display: block;
+          color: #e9edf2;
+          font-size: 12px;
+        }
+        .team-owner-player-list-player span,
+        .team-owner-player-list-details span,
+        .team-owner-player-list-price span {
+          display: block;
+          margin-top: 3px;
+          color: #626b77;
+          font-size: 9px;
+          line-height: 1.35;
+        }
+        .team-owner-player-list-details strong {
+          color: #aeb6c0;
+        }
+        .team-owner-player-list-price strong {
+          color: #00e676;
+        }
+        .team-owner-player-list-status span {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 78px;
+          padding: 6px 8px;
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 5px;
+          color: #7c8591;
+          font-size: 9px;
+          font-weight: 900;
+          letter-spacing: 0.07em;
+        }
+        .status-live .team-owner-player-list-status span {
+          border-color: rgba(0,230,118,0.30);
+          background: rgba(0,230,118,0.07);
+          color: #00e676;
+        }
+        .status-sold .team-owner-player-list-status span {
+          border-color: rgba(255,190,60,0.28);
+          background: rgba(255,190,60,0.06);
+          color: #ffc34d;
+        }
+        .status-unsold .team-owner-player-list-status span {
+          color: #a0a8b2;
+        }
+        .status-upcoming .team-owner-player-list-status span {
+          color: #68717d;
+        }
+        .team-owner-player-list-empty {
+          padding: 50px 20px;
+          text-align: center;
+          color: #707985;
+          font-size: 12px;
+        }
+        .team-owner-player-list-footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 16px 26px 20px;
+        }
+        .team-owner-player-list-footer span {
+          color: #59616c;
+          font-size: 10px;
+        }
+        .team-owner-player-list-footer button {
+          min-width: 82px;
+          padding: 9px 14px;
+          border: 1px solid rgba(0,230,118,0.25);
+          border-radius: 6px;
+          background: rgba(0,230,118,0.07);
+          color: #00e676;
+          font: inherit;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: 0.08em;
+          cursor: pointer;
+        }
+        @media (max-width: 900px) {
+          .team-owner-player-list-button span { display: none; }
+          .team-owner-player-list-button { padding: 0 10px; }
+          .team-owner-player-list-table-head,
+          .team-owner-player-list-row {
+            grid-template-columns: minmax(220px, 1.5fr) minmax(150px, 1fr) 120px 95px;
+            column-gap: 10px;
+          }
+        }
+        @media (max-width: 700px) {
+          .team-owner-player-list-overlay { padding: 10px; }
+          .team-owner-player-list-modal { max-height: 94vh; }
+          .team-owner-player-list-header,
+          .team-owner-player-list-summary,
+          .team-owner-player-list-toolbar,
+          .team-owner-player-list-footer { padding-left: 16px; padding-right: 16px; }
+          .team-owner-player-list-toolbar { align-items: stretch; flex-direction: column; }
+          .team-owner-player-list-table-wrap { margin: 0 16px; overflow-x: auto; }
+          .team-owner-player-list-table-head,
+          .team-owner-player-list-row { min-width: 700px; }
+          .team-owner-player-list-table-body { max-height: 58vh; }
+          .team-owner-player-list-footer { align-items: flex-start; flex-direction: column; }
+        }
+      `}</style>
       <header className="team-owner-header">
         <div className="team-owner-brand">
           <img
@@ -798,6 +1346,21 @@ function TeamOwnerDashboard({
             <span className="team-owner-live-dot" />
             {statusLabel}
           </div>
+
+          <button
+            type="button"
+            className="team-owner-player-list-button"
+            onClick={() => {
+              setPlayerListOpen(true);
+              setPlayerListSearch("");
+              setPlayerListFilter("ALL");
+            }}
+            title="View all players"
+          >
+            <Users size={17} />
+            <span>PLAYER LIST</span>
+            <strong>{AUCTION_PLAYERS.length}</strong>
+          </button>
 
           <div className="team-owner-account">
             <div className="team-owner-account-text">
@@ -825,14 +1388,11 @@ function TeamOwnerDashboard({
         </div>
       </header>
 
-      {(authError ||
-        connectionError) && (
+      {(authError || connectionError) && (
         <div className="team-owner-alert">
           <X size={17} />
-
           <span>
-            {connectionError ||
-              authError}
+            {connectionError || authError}
           </span>
         </div>
       )}
@@ -850,10 +1410,7 @@ function TeamOwnerDashboard({
               ) : (
                 <div className="team-owner-logo-fallback">
                   {teamName
-                    .replace(
-                      /TEAM\s*/i,
-                      ""
-                    )
+                    .replace(/TEAM\s*/i, "")
                     .padStart(2, "0")}
                 </div>
               )}
@@ -865,10 +1422,7 @@ function TeamOwnerDashboard({
               </span>
 
               <h1>{teamName}</h1>
-
-              <p>
-                Live team command center
-              </p>
+              <p>Live team command center</p>
             </div>
           </div>
 
@@ -876,13 +1430,10 @@ function TeamOwnerDashboard({
             <ShieldCheck size={19} />
 
             <div>
-              <strong>
-                VIEW ONLY ACCESS
-              </strong>
-
+              <strong>VIEW ONLY ACCESS</strong>
               <span>
-                Auction controls are managed
-                by the operator
+                Auction controls are managed by the
+                operator
               </span>
             </div>
           </div>
@@ -893,13 +1444,9 @@ function TeamOwnerDashboard({
             <div className="team-owner-stat-icon">
               <Wallet size={21} />
             </div>
-
             <div>
               <span>REMAINING PURSE</span>
-
-              <strong>
-                {formatCurrency(purse)}
-              </strong>
+              <strong>{formatCurrency(purse)}</strong>
             </div>
           </div>
 
@@ -907,13 +1454,9 @@ function TeamOwnerDashboard({
             <div className="team-owner-stat-icon">
               <CircleDollarSign size={21} />
             </div>
-
             <div>
               <span>TOTAL SPENT</span>
-
-              <strong>
-                {formatCurrency(spent)}
-              </strong>
+              <strong>{formatCurrency(spent)}</strong>
             </div>
           </div>
 
@@ -921,15 +1464,11 @@ function TeamOwnerDashboard({
             <div className="team-owner-stat-icon">
               <Users size={21} />
             </div>
-
             <div>
               <span>SQUAD SIZE</span>
-
               <strong>
                 {squadCount}
-                <small>
-                  /{MAX_SQUAD_SIZE}
-                </small>
+                <small>/{MAX_SQUAD_SIZE}</small>
               </strong>
             </div>
           </div>
@@ -938,13 +1477,9 @@ function TeamOwnerDashboard({
             <div className="team-owner-stat-icon">
               <Zap size={21} />
             </div>
-
             <div>
               <span>SLOTS REMAINING</span>
-
-              <strong>
-                {slotsRemaining}
-              </strong>
+              <strong>{slotsRemaining}</strong>
             </div>
           </div>
         </section>
@@ -953,13 +1488,8 @@ function TeamOwnerDashboard({
           <div className="team-owner-auction-column">
             <div className="team-owner-section-heading">
               <div>
-                <span>
-                  LIVE AUCTION FLOOR
-                </span>
-
-                <h2>
-                  Current Player
-                </h2>
+                <span>LIVE AUCTION FLOOR</span>
+                <h2>Current Player</h2>
               </div>
 
               <div
@@ -980,18 +1510,15 @@ function TeamOwnerDashboard({
                 ) : (
                   <div className="team-owner-player-placeholder">
                     <Users size={64} />
-
-                    <span>
-                      PLAYER PHOTO
-                    </span>
+                    <span>PLAYER PHOTO</span>
                   </div>
                 )}
 
                 {displayPlayerId && (
                   <div className="team-owner-player-number">
-                    {String(
-                      displayPlayerId
-                    ).startsWith("#")
+                    {String(displayPlayerId).startsWith(
+                      "#"
+                    )
                       ? displayPlayerId
                       : `#${displayPlayerId}`}
                   </div>
@@ -1003,47 +1530,28 @@ function TeamOwnerDashboard({
                   CURRENT LOT
                 </span>
 
-                <h3>
-                  {displayPlayerName}
-                </h3>
+                <h3>{displayPlayerName}</h3>
 
                 <div className="team-owner-player-meta">
-                  <span>
-                    {displayPlayerRole}
-                  </span>
+                  <span>{displayPlayerRole}</span>
 
                   {currentPlayer?.department && (
                     <span>
-                      {
-                        currentPlayer.department
-                      }
-                    </span>
-                  )}
-
-                  {currentPlayer?.age && (
-                    <span>
-                      AGE{" "}
-                      {currentPlayer.age}
+                      {currentPlayer.department}
                     </span>
                   )}
 
                   {currentPlayer?.year && (
                     <span>
-                      YEAR{" "}
-                      {currentPlayer.year}
+                      YEAR {currentPlayer.year}
                     </span>
                   )}
                 </div>
 
                 <div className="team-owner-base-price">
-                  <span>
-                    BASE PRICE
-                  </span>
-
+                  <span>BASE PRICE</span>
                   <strong>
-                    {formatCurrency(
-                      playerBasePrice
-                    )}
+                    {formatCurrency(playerBasePrice)}
                   </strong>
                 </div>
               </div>
@@ -1051,29 +1559,20 @@ function TeamOwnerDashboard({
 
             <div className="team-owner-bid-panel">
               <div className="team-owner-bid-main">
-                <span>
-                  CURRENT BID
-                </span>
-
+                <span>CURRENT BID</span>
                 <strong>
-                  {formatCurrency(
-                    currentBid
-                  )}
+                  {formatCurrency(currentBid)}
                 </strong>
               </div>
 
               <div className="team-owner-bid-divider" />
 
               <div className="team-owner-bidder">
-                <span>
-                  HIGHEST BIDDER
-                </span>
+                <span>HIGHEST BIDDER</span>
 
                 <strong
                   className={
-                    currentBidderIsUs
-                      ? "mine"
-                      : ""
+                    currentBidderIsUs ? "mine" : ""
                   }
                 >
                   {highestBidder ||
@@ -1082,40 +1581,28 @@ function TeamOwnerDashboard({
 
                 {currentBidderIsUs && (
                   <small>
-                    YOUR TEAM IS CURRENTLY
-                    LEADING
+                    YOUR TEAM IS CURRENTLY LEADING
                   </small>
                 )}
               </div>
 
-              {timerRemaining > 0 && (
-                <>
-                  <div className="team-owner-bid-divider" />
+              <div className="team-owner-bid-divider" />
 
-                  <div className="team-owner-timer">
-                    <Clock3 size={17} />
-
-                    <div>
-                      <span>
-                        BID TIMER
-                      </span>
-
-                      <strong>
-                        {timerRemaining}s
-                      </strong>
-                    </div>
-                  </div>
-                </>
-              )}
+              <div className="team-owner-timer">
+                <Clock3 size={17} />
+                <div>
+                  <span>BID TIMER</span>
+                  <strong>{timerRemaining}s</strong>
+                </div>
+              </div>
             </div>
 
             <div className="team-owner-notice">
               <Radio size={17} />
-
               <span>
-                This screen updates automatically
-                when the auction operator changes
-                the live auction state.
+                This screen updates automatically when
+                the auction operator changes the live
+                auction state.
               </span>
             </div>
           </div>
@@ -1123,13 +1610,8 @@ function TeamOwnerDashboard({
           <aside className="team-owner-squad-column">
             <div className="team-owner-section-heading">
               <div>
-                <span>
-                  YOUR FRANCHISE
-                </span>
-
-                <h2>
-                  Squad
-                </h2>
+                <span>YOUR FRANCHISE</span>
+                <h2>Squad</h2>
               </div>
 
               <div className="team-owner-squad-count">
@@ -1141,42 +1623,36 @@ function TeamOwnerDashboard({
               {squadPlayers.length === 0 ? (
                 <div className="team-owner-empty-squad">
                   <Users size={34} />
-
                   <strong>
                     No players acquired yet
                   </strong>
-
                   <span>
-                    Your purchased players will
-                    appear here automatically.
+                    Your purchased players will appear
+                    here automatically.
                   </span>
                 </div>
               ) : (
                 <div className="team-owner-squad-list">
-                  {squadPlayers.map(
-                    (player, index) => (
+                  {squadPlayers.map((player, index) => {
+                    const canonicalPlayer =
+                      getCanonicalPlayer(player);
+                    const squadPlayerImage =
+                      getPlayerImage(canonicalPlayer) ||
+                      getPlayerImage(player);
+
+                    return (
                       <div
                         className="team-owner-squad-player"
                         key={
-                          getPlayerId(
-                            player
-                          ) ||
-                          `${getPlayerName(
-                            player
-                          )}-${index}`
+                          getPlayerId(player) ||
+                          `${getPlayerName(player)}-${index}`
                         }
                       >
                         <div className="team-owner-squad-avatar">
-                          {getPlayerImage(
-                            player
-                          ) ? (
+                          {squadPlayerImage ? (
                             <img
-                              src={getPlayerImage(
-                                player
-                              )}
-                              alt={getPlayerName(
-                                player
-                              )}
+                              src={squadPlayerImage}
+                              alt={getPlayerName(player)}
                             />
                           ) : (
                             <Users size={19} />
@@ -1185,64 +1661,46 @@ function TeamOwnerDashboard({
 
                         <div className="team-owner-squad-player-info">
                           <strong>
-                            {getPlayerName(
-                              player
-                            )}
+                            {getPlayerName(player)}
                           </strong>
-
                           <span>
                             {getPlayerRole(
-                              player
+                              canonicalPlayer || player
                             )}
                           </span>
                         </div>
 
                         <div className="team-owner-squad-price">
-                          <span>
-                            SOLD
-                          </span>
-
+                          <span>SOLD</span>
                           <strong>
                             {formatCurrency(
-                              getSoldPrice(
-                                player
-                              )
+                              getSoldPrice(player)
                             )}
                           </strong>
                         </div>
                       </div>
-                    )
-                  )}
+                    );
+                  })}
                 </div>
               )}
 
-              {squadCount <
-                MAX_SQUAD_SIZE && (
+              {squadCount < MAX_SQUAD_SIZE && (
                 <div className="team-owner-open-slots">
-                  <span>
-                    OPEN SLOTS
-                  </span>
-
-                  <strong>
-                    {slotsRemaining}
-                  </strong>
+                  <span>OPEN SLOTS</span>
+                  <strong>{slotsRemaining}</strong>
                 </div>
               )}
             </div>
 
             <div className="team-owner-budget-card">
               <div className="team-owner-budget-heading">
-                <span>
-                  PURSE UTILIZATION
-                </span>
-
+                <span>PURSE UTILIZATION</span>
                 <strong>
                   {STARTING_PURSE > 0
                     ? Math.min(
                         100,
                         Math.round(
-                          (spent /
-                            STARTING_PURSE) *
+                          (spent / STARTING_PURSE) *
                             100
                         )
                       )
@@ -1259,8 +1717,7 @@ function TeamOwnerDashboard({
                       100,
                       Math.max(
                         0,
-                        (spent /
-                          STARTING_PURSE) *
+                        (spent / STARTING_PURSE) *
                           100
                       )
                     )}%`,
@@ -1270,15 +1727,10 @@ function TeamOwnerDashboard({
 
               <div className="team-owner-budget-values">
                 <span>
-                  Spent{" "}
-                  {formatCurrency(spent)}
+                  Spent {formatCurrency(spent)}
                 </span>
-
                 <span>
-                  Budget{" "}
-                  {formatCurrency(
-                    STARTING_PURSE
-                  )}
+                  Budget {formatCurrency(STARTING_PURSE)}
                 </span>
               </div>
             </div>
@@ -1286,15 +1738,209 @@ function TeamOwnerDashboard({
         </section>
       </main>
 
+      {playerListOpen && (
+        <div
+          className="team-owner-player-list-overlay"
+          onClick={() => setPlayerListOpen(false)}
+        >
+          <div
+            className="team-owner-player-list-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="team-owner-player-list-header">
+              <div>
+                <span>PLAYER MANAGEMENT</span>
+                <h2>PLAYER LIST</h2>
+                <p>
+                  Complete DPL auction pool with live player status.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="team-owner-player-list-close"
+                onClick={() => setPlayerListOpen(false)}
+                aria-label="Close player list"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="team-owner-player-list-summary">
+              <button
+                type="button"
+                className={
+                  playerListFilter === "ALL"
+                    ? "active"
+                    : ""
+                }
+                onClick={() => setPlayerListFilter("ALL")}
+              >
+                ALL <strong>{playerListCounts.all}</strong>
+              </button>
+              <button
+                type="button"
+                className={
+                  playerListFilter === "LIVE"
+                    ? "active"
+                    : ""
+                }
+                onClick={() => setPlayerListFilter("LIVE")}
+              >
+                LIVE <strong>{playerListCounts.live}</strong>
+              </button>
+              <button
+                type="button"
+                className={
+                  playerListFilter === "SOLD"
+                    ? "active"
+                    : ""
+                }
+                onClick={() => setPlayerListFilter("SOLD")}
+              >
+                SOLD <strong>{playerListCounts.sold}</strong>
+              </button>
+              <button
+                type="button"
+                className={
+                  playerListFilter === "UNSOLD"
+                    ? "active"
+                    : ""
+                }
+                onClick={() => setPlayerListFilter("UNSOLD")}
+              >
+                UNSOLD <strong>{playerListCounts.unsold}</strong>
+              </button>
+              <button
+                type="button"
+                className={
+                  playerListFilter === "UPCOMING"
+                    ? "active"
+                    : ""
+                }
+                onClick={() => setPlayerListFilter("UPCOMING")}
+              >
+                UPCOMING <strong>{playerListCounts.upcoming}</strong>
+              </button>
+            </div>
+
+            <div className="team-owner-player-list-toolbar">
+              <div className="team-owner-player-list-search">
+                <Search size={17} />
+                <input
+                  type="text"
+                  placeholder="Search player, department or year..."
+                  value={playerListSearch}
+                  onChange={(event) =>
+                    setPlayerListSearch(event.target.value)
+                  }
+                />
+              </div>
+
+              <span>
+                SHOWING {playerListRows.length} / {AUCTION_PLAYERS.length}
+              </span>
+            </div>
+
+            <div className="team-owner-player-list-table-wrap">
+              <div className="team-owner-player-list-table-head">
+                <span>PLAYER</span>
+                <span>DETAILS</span>
+                <span>BASE PRICE</span>
+                <span>STATUS</span>
+              </div>
+
+              <div className="team-owner-player-list-table-body">
+                {playerListRows.length === 0 ? (
+                  <div className="team-owner-player-list-empty">
+                    No players match your search.
+                  </div>
+                ) : (
+                  playerListRows.map((player) => {
+                    const image = getPlayerImage(player);
+                    const soldPrice = player.soldRecord
+                      ? getSoldPrice(player.soldRecord)
+                      : 0;
+                    const soldTeam = player.soldRecord
+                      ? getSoldTeam(player.soldRecord)
+                      : "";
+
+                    return (
+                      <div
+                        className={`team-owner-player-list-row status-${player.status.toLowerCase()}`}
+                        key={player.id}
+                      >
+                        <div className="team-owner-player-list-player">
+                          <div className="team-owner-player-list-avatar">
+                            {image ? (
+                              <img
+                                src={image}
+                                alt={player.name}
+                              />
+                            ) : (
+                              <Users size={18} />
+                            )}
+                          </div>
+
+                          <div>
+                            <strong>{player.name}</strong>
+                            <span>{player.playerNumber}</span>
+                          </div>
+                        </div>
+
+                        <div className="team-owner-player-list-details">
+                          <strong>
+                            {player.department || "—"}
+                          </strong>
+                          <span>
+                            {player.year || "—"} • {player.set}
+                          </span>
+                        </div>
+
+                        <div className="team-owner-player-list-price">
+                          <strong>
+                            {formatCurrency(player.basePrice)}
+                          </strong>
+                          {player.status === "SOLD" && (
+                            <span>
+                              SOLD {formatCurrency(soldPrice)}
+                              {soldTeam ? ` • ${soldTeam}` : ""}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="team-owner-player-list-status">
+                          <span>{player.status}</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            <div className="team-owner-player-list-footer">
+              <span>
+                Player prices are sourced directly from the official player data.
+              </span>
+              <button
+                type="button"
+                onClick={() => setPlayerListOpen(false)}
+              >
+                DONE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <footer className="team-owner-footer">
         <div>
           <span className="team-owner-footer-live-dot" />
           LIVE SYNC ACTIVE
         </div>
 
-        <span>
-          DPL AUCTION • TEAM OWNER PORTAL
-        </span>
+        <span>DPL AUCTION • TEAM OWNER PORTAL</span>
       </footer>
     </div>
   );

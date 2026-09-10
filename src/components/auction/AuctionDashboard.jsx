@@ -7,6 +7,205 @@ import {
 import { supabase } from "../../lib/supabase";
 import "./AuctionDashboard.css";
 import SoldOverlay from "../SoldOverlay";
+import players, {
+  clubMembers as clubMemberPlayers,
+  outsideParticipants as outsideParticipantPlayers,
+} from "../../data/players";
+
+/* =========================================================
+   PARTICIPANT IMAGE MAP
+
+   All participant images are stored in:
+
+   public/assets/players/
+
+   The paths below are browser paths, so they start with
+   /assets/players/
+
+   IDs are used instead of names wherever possible so small
+   differences between participant names and filenames do
+   not break the image.
+========================================================= */
+
+const PLAYER_IMAGE_MAP = {
+  /* =======================================================
+     CLUB MEMBERS
+  ======================================================= */
+
+  "CLUB-01":
+    "/assets/players/GokulJayandan%20R%20S.png",
+
+  "CLUB-02":
+    "/assets/players/KIRAN%20RAJ%20M.jpg",
+
+  "CLUB-03":
+    "/assets/players/Nithya%20Shiva%20Thirumalaivarathan.jpeg",
+
+  "CLUB-04":
+    "/assets/players/Hasini%20J.jpg",
+
+  "CLUB-05":
+    "/assets/players/Adhithya%20P.png",
+
+  "CLUB-06":
+    "/assets/players/Akshita%20Sriraman.jpeg",
+
+  /* =======================================================
+     OUTSIDE PARTICIPANTS
+  ======================================================= */
+
+  "OUT-01":
+    "/assets/players/Ajith%20Kumar%20G.jpeg",
+
+  "OUT-02":
+    "/assets/players/Prakash%20M.png",
+
+  "OUT-03":
+    "/assets/players/Kausik%20T.jpg",
+
+  "OUT-04":
+    "/assets/players/Priyanka.A.jpeg",
+
+  "OUT-05":
+    "/assets/players/Sanjay%20Joshua%20Swaminathan.jpg",
+
+  "OUT-06":
+    "/assets/players/Gokul%20M.jpeg",
+
+  "OUT-07":
+    "/assets/players/Dawan%20Babu%20K.jpg",
+
+  "OUT-08":
+    "/assets/players/Periathai.jpg",
+
+  "OUT-09":
+    "/assets/players/BHUVANESHWARAN%20B.jpeg",
+
+  "OUT-10":
+    "/assets/players/BALAKRISHNAN%20R.png",
+
+  "OUT-11":
+    "/assets/players/RAJESHWARI%20B%20C.jpeg",
+
+  "OUT-12":
+    "/assets/players/ASWIN%20KUMAR%20V.jpg",
+
+  "OUT-13":
+    "/assets/players/HARI%20PRASATH%20Y.jpg",
+
+  "OUT-14":
+    "/assets/players/Jai%20Krishna%20Prasath%20D.jpg",
+
+  "OUT-15":
+    "/assets/players/ALAGU%20MANIKANDAN%20S%20.jpeg",
+
+  "OUT-16":
+    "/assets/players/BHARATH%20P.jpg",
+
+  "OUT-17":
+    "/assets/players/S%20SHUBHAM.jpg",
+
+  "OUT-18":
+    "/assets/players/S.Siva%20Sai%20Ram.jpeg",
+
+  "OUT-19":
+    "/assets/players/SANTHOSH%20AG.jpeg",
+
+  "OUT-20":
+    "/assets/players/SRIVIKASINI.V.jpeg",
+
+  "OUT-21":
+    "/assets/players/MUKILASH%20VK.webp",
+
+  "OUT-22":
+    "/assets/players/Dinesh%20G.jpeg",
+
+  "OUT-23":
+    "/assets/players/ROHITH%20SOUNDAR.png",
+
+  "OUT-24":
+    "/assets/players/DHARMA%20DHARSHAN%20G.jpeg",
+
+  "OUT-25":
+    "/assets/players/Rohit%20Ram%20JV.jpg",
+
+  "OUT-26":
+    "/assets/players/Raghavendhar%20R.webp",
+
+  "OUT-27":
+    "/assets/players/Balaji%20B.png",
+
+  "OUT-28":
+    "/assets/players/LAKSHMI%20NARAYANAN%20K.jpg",
+
+  "OUT-29":
+    "/assets/players/VISHAL%20D.jpg",
+
+  "OUT-30":
+    "/assets/players/BIVIN%20KANTH%20V.jpg",
+
+  "OUT-31":
+    "/assets/players/RITHIC%20HITESH%20B.jpg",
+
+  "OUT-32":
+    "/assets/players/ASHWIN%20M.png",
+
+  "OUT-33":
+    "/assets/players/ALLEN%20JONES%20T%20.jpg",
+
+  "OUT-34":
+    "/assets/players/NITHIYANANDAM%20S.jpeg",
+
+  "OUT-35":
+    "/assets/players/TEEJAS%20K.jpeg",
+
+  "OUT-36":
+    "/assets/players/SITHARTH%20A%20.jpg",
+
+  "OUT-37":
+    "/assets/players/YESHWANTH%20V%20.jpg",
+
+  "OUT-38":
+    "/assets/players/HARISH%20MANI%20E.jpg",
+
+  "OUT-39":
+    "/assets/players/K%20BUVANESWARAN.jpg",
+
+  "OUT-40":
+    "/assets/players/SIVAKARTHICK.jpeg",
+
+  "OUT-41":
+    "/assets/players/RITVIK%20HARIGOVIND%20B.jpg",
+
+  "OUT-42":
+    "/assets/players/UTKARSH%20SAI%20SIDHARDH%20K.jpg",
+
+  "OUT-43":
+    "/assets/players/ARAVINDRAJAN%20A.jpeg",
+
+  "OUT-44":
+    "/assets/players/AKASH%20V.jpeg",
+
+  "OUT-45":
+    "/assets/players/CHANDRU%20A.jpeg",
+};
+
+/* =========================================================
+   PLAYER IMAGE HELPER
+
+   players.js currently contains image: null.
+
+   This helper injects the correct image path without
+   changing players.js.
+========================================================= */
+
+const withPlayerImage = (player) => ({
+  ...player,
+  image:
+    player.image ||
+    PLAYER_IMAGE_MAP[player.id] ||
+    null,
+});
 
 function AuctionDashboard({
   readOnly = false,
@@ -27,14 +226,17 @@ function AuctionDashboard({
      AUCTION STATE
   ========================================================= */
 
-  const [auctionStatus, setAuctionStatus] = useState("LIVE");
+  const [auctionStatus, setAuctionStatus] =
+    useState("LIVE");
 
-  const [currentBid, setCurrentBid] = useState(2500);
+  const [currentBid, setCurrentBid] =
+    useState(500);
 
   const [highestBidder, setHighestBidder] =
-    useState("TEAM 03");
+    useState(null);
 
-  const [bidFlash, setBidFlash] = useState(false);
+  const [bidFlash, setBidFlash] =
+    useState(false);
 
   const [bidTimeRemaining, setBidTimeRemaining] =
     useState(120);
@@ -45,7 +247,8 @@ function AuctionDashboard({
   const [syncReady, setSyncReady] =
     useState(false);
 
-  const [soldTeam, setSoldTeam] = useState(null);
+  const [soldTeam, setSoldTeam] =
+    useState(null);
 
   const [soldOverlayOpen, setSoldOverlayOpen] =
     useState(false);
@@ -55,27 +258,31 @@ function AuctionDashboard({
 
   /* =========================================================
      REALTIME SYNC REFS
-
-     These refs prevent the operator's own Supabase update
-     from coming back through Realtime and causing another
-     unnecessary state -> database -> state cycle.
   ========================================================= */
 
-  const persistTimerRef = useRef(null);
+  const persistTimerRef =
+    useRef(null);
 
-  const pendingPersistRef = useRef(null);
+  const pendingPersistRef =
+    useRef(null);
 
-  const persistInFlightRef = useRef(false);
+  const persistInFlightRef =
+    useRef(false);
 
-  const lastPersistedSnapshotRef = useRef(null);
+  const lastPersistedSnapshotRef =
+    useRef(null);
 
-  const lastRemoteSnapshotRef = useRef(null);
+  const lastRemoteSnapshotRef =
+    useRef(null);
 
-  const lastLocalUpdatedAtMsRef = useRef(0);
+  const lastLocalUpdatedAtMsRef =
+    useRef(0);
 
-  const lastLocalSnapshotRef = useRef(null);
+  const lastLocalSnapshotRef =
+    useRef(null);
 
-  const realtimeChannelRef = useRef(null);
+  const realtimeChannelRef =
+    useRef(null);
 
   /* =========================================================
      MANUAL BID STATE
@@ -97,150 +304,120 @@ function AuctionDashboard({
      TEAM DATA
   ========================================================= */
 
-  const [teams, setTeams] = useState([
-    {
-      id: "TEAM 01",
-      shortName: "STARS",
-      name: "MELBOURNE TECH STARS",
-      logo: "/assets/teams/team-01.png",
-      owner: "/assets/owners/team-01.webp",
-      amount: STARTING_PURSE,
-    },
-    {
-      id: "TEAM 02",
-      shortName: "COMETS",
-      name: "CANBERRA CODE COMETS",
-      logo: "/assets/teams/team-02.png",
-      owner: "/assets/owners/team-02.webp",
-      amount: STARTING_PURSE,
-    },
-    {
-      id: "TEAM 03",
-      shortName: "TITANS",
-      name: "TOWNSVILLE TECH TITANS",
-      logo: "/assets/teams/team-03.png",
-      owner: "/assets/owners/team-03.webp",
-      amount: STARTING_PURSE - 2500,
-    },
-    {
-      id: "TEAM 04",
-      shortName: "THUNDER",
-      name: "SYDNEY CLOUD THUNDER",
-      logo: "/assets/teams/team-04.png",
-      owner: "/assets/owners/team-04.webp",
-      amount: STARTING_PURSE,
-    },
-    {
-      id: "TEAM 05",
-      shortName: "CYCLONES",
-      name: "DARWIN DATA CYCLONES",
-      logo: "/assets/teams/team-05.png",
-      owner: "/assets/owners/team-05.webp",
-      amount: STARTING_PURSE,
-    },
-    {
-      id: "TEAM 06",
-      shortName: "SIXERS",
-      name: "SYDNEY SILICON SIXERS",
-      logo: "/assets/teams/team-06.png",
-      owner: "/assets/owners/team-06.webp",
-      amount: STARTING_PURSE,
-    },
-    {
-      id: "TEAM 07",
-      shortName: "GENGARS",
-      name: "GEELONG GENGARS",
-      logo: "/assets/teams/team-07.png",
-      owner: "/assets/owners/team-07.webp",
-      amount: STARTING_PURSE,
-    },
-    {
-      id: "TEAM 08",
-      shortName: "BYTE HEAT",
-      name: "BRISBANE BYTE HEAT",
-      logo: "/assets/teams/team-08.png",
-      owner: "/assets/owners/team-08.webp",
-      amount: STARTING_PURSE,
-    },
-    {
-      id: "TEAM 09",
-      shortName: "SCORCHERS",
-      name: "PERTH PIXEL SCORCHERS",
-      logo: "/assets/teams/team-09.png",
-      owner: "/assets/owners/team-09.webp",
-      amount: STARTING_PURSE,
-    },
-    {
-      id: "TEAM 10",
-      shortName: "BLAZERS",
-      name: "NEWCASTLE NETWORK BLAZERS",
-      logo: "/assets/teams/team-10.png",
-      owner: "/assets/owners/team-10.webp",
-      amount: STARTING_PURSE,
-    },
-  ]);
+  const [teams, setTeams] =
+    useState([
+      {
+        id: "TEAM 01",
+        shortName: "STARS",
+        name: "MELBOURNE TECH STARS",
+        logo: "/assets/teams/team-01.png",
+        owner: "/assets/owners/team-01.webp",
+        amount: STARTING_PURSE,
+      },
+      {
+        id: "TEAM 02",
+        shortName: "COMETS",
+        name: "CANBERRA CODE COMETS",
+        logo: "/assets/teams/team-02.png",
+        owner: "/assets/owners/team-02.webp",
+        amount: STARTING_PURSE,
+      },
+      {
+        id: "TEAM 03",
+        shortName: "TITANS",
+        name: "TOWNSVILLE TECH TITANS",
+        logo: "/assets/teams/team-03.png",
+        owner: "/assets/owners/team-03.webp",
+        amount: STARTING_PURSE,
+      },
+      {
+        id: "TEAM 04",
+        shortName: "THUNDER",
+        name: "SYDNEY CLOUD THUNDER",
+        logo: "/assets/teams/team-04.png",
+        owner: "/assets/owners/team-04.webp",
+        amount: STARTING_PURSE,
+      },
+      {
+        id: "TEAM 05",
+        shortName: "CYCLONES",
+        name: "DARWIN DATA CYCLONES",
+        logo: "/assets/teams/team-05.png",
+        owner: "/assets/owners/team-05.webp",
+        amount: STARTING_PURSE,
+      },
+      {
+        id: "TEAM 06",
+        shortName: "SIXERS",
+        name: "SYDNEY SILICON SIXERS",
+        logo: "/assets/teams/team-06.png",
+        owner: "/assets/owners/team-06.webp",
+        amount: STARTING_PURSE,
+      },
+      {
+        id: "TEAM 07",
+        shortName: "GENGARS",
+        name: "GEELONG GENGARS",
+        logo: "/assets/teams/team-07.png",
+        owner: "/assets/owners/team-07.webp",
+        amount: STARTING_PURSE,
+      },
+      {
+        id: "TEAM 08",
+        shortName: "BYTE HEAT",
+        name: "BRISBANE BYTE HEAT",
+        logo: "/assets/teams/team-08.png",
+        owner: "/assets/owners/team-08.webp",
+        amount: STARTING_PURSE,
+      },
+      {
+        id: "TEAM 09",
+        shortName: "SCORCHERS",
+        name: "PERTH PIXEL SCORCHERS",
+        logo: "/assets/teams/team-09.png",
+        owner: "/assets/owners/team-09.webp",
+        amount: STARTING_PURSE,
+      },
+      {
+        id: "TEAM 10",
+        shortName: "BLAZERS",
+        name: "NEWCASTLE NETWORK BLAZERS",
+        logo: "/assets/teams/team-10.png",
+        owner: "/assets/owners/team-10.webp",
+        amount: STARTING_PURSE,
+      },
+    ]);
 
   /* =========================================================
      PLAYER QUEUE
+
+     Image is injected from PLAYER_IMAGE_MAP.
   ========================================================= */
 
-  const playerQueue = [
-    {
-      number: "#07",
-      name: "ARJUN SHARMA",
-      category: "BATTER",
-      country: "INDIA",
-      age: 22,
-      style: "RIGHT HAND",
-      basePrice: 500,
-      image: null,
-      set: "OUTSIDE PARTICIPANTS",
-    },
-    {
-      number: "#08",
-      name: "ADITYA RAJ",
-      category: "BATTER",
-      country: "INDIA",
-      age: 21,
-      style: "RIGHT HAND",
-      basePrice: 500,
-      image: null,
-      set: "OUTSIDE PARTICIPANTS",
-    },
-    {
-      number: "#09",
-      name: "KARAN PATEL",
-      category: "BOWLER",
-      country: "INDIA",
-      age: 25,
-      style: "RIGHT ARM",
-      basePrice: 500,
-      image: null,
-      set: "OUTSIDE PARTICIPANTS",
-    },
-    {
-      number: "#10",
-      name: "ROHAN DAS",
-      category: "ALL ROUNDER",
-      country: "INDIA",
-      age: 22,
-      style: "RIGHT HAND",
-      basePrice: 500,
-      image: null,
-      set: "OUTSIDE PARTICIPANTS",
-    },
-    {
-      number: "#11",
-      name: "SANJAY KUMAR",
-      category: "BATTER",
-      country: "INDIA",
-      age: 23,
-      style: "LEFT HAND",
-      basePrice: 500,
-      image: null,
-      set: "OUTSIDE PARTICIPANTS",
-    },
-  ];
+  const playerQueue = players.map(
+    (player, index) => {
+      const playerWithImage =
+        withPlayerImage(player);
+
+      return {
+        ...playerWithImage,
+
+        number:
+          `#${String(index + 1).padStart(
+            2,
+            "0"
+          )}`,
+
+        country: "INDIA",
+
+        set:
+          player.category ===
+          "Club Member"
+            ? "CLUB MEMBERS"
+            : "OUTSIDE PARTICIPANTS",
+      };
+    }
+  );
 
   const [currentPlayerIndex, setCurrentPlayerIndex] =
     useState(0);
@@ -261,97 +438,42 @@ function AuctionDashboard({
   const [playerSearch, setPlayerSearch] =
     useState("");
 
-  const clubMembers = [
-    {
-      id: 1,
-      name: "Arjun Sharma",
-      category: "BATTER",
-      age: 22,
-      style: "RIGHT HAND",
-      country: "INDIA",
-      playerNumber: "01",
-      image: null,
-    },
-    {
-      id: 2,
-      name: "Rahul Kumar",
-      category: "ALL ROUNDER",
-      age: 24,
-      style: "RIGHT HAND",
-      country: "INDIA",
-      playerNumber: "02",
-      image: null,
-    },
-    {
-      id: 3,
-      name: "Vikram Singh",
-      category: "BOWLER",
-      age: 23,
-      style: "RIGHT ARM",
-      country: "INDIA",
-      playerNumber: "03",
-      image: null,
-    },
-  ];
+  const clubMembers =
+    clubMemberPlayers.map(
+      (player, index) => ({
+        ...withPlayerImage(player),
 
-  const outsideParticipants = [
-    {
-      id: 101,
-      name: "Aditya Raj",
-      category: "BATTER",
-      age: 21,
-      style: "RIGHT HAND",
-      country: "INDIA",
-      playerNumber: "01",
-      image: null,
-    },
-    {
-      id: 102,
-      name: "Karan Patel",
-      category: "BOWLER",
-      age: 25,
-      style: "RIGHT ARM",
-      country: "INDIA",
-      playerNumber: "02",
-      image: null,
-    },
-    {
-      id: 103,
-      name: "Rohan Das",
-      category: "ALL ROUNDER",
-      age: 22,
-      style: "RIGHT HAND",
-      country: "INDIA",
-      playerNumber: "03",
-      image: null,
-    },
-    {
-      id: 104,
-      name: "Sanjay Kumar",
-      category: "BATTER",
-      age: 23,
-      style: "LEFT HAND",
-      country: "INDIA",
-      playerNumber: "04",
-      image: null,
-    },
-  ];
+        playerNumber:
+          String(index + 1).padStart(
+            2,
+            "0"
+          ),
+
+        country: "INDIA",
+      })
+    );
+
+  const outsideParticipants =
+    outsideParticipantPlayers.map(
+      (player, index) => ({
+        ...withPlayerImage(player),
+
+        playerNumber:
+          String(index + 1).padStart(
+            2,
+            "0"
+          ),
+
+        country: "INDIA",
+      })
+    );
 
   /* =========================================================
      BID HISTORY
   ========================================================= */
 
   const [bidHistory, setBidHistory] =
-    useState([
-      {
-        id: 1,
-        team: "TEAM 03",
-        teamName: "TOWNSVILLE TECH TITANS",
-        amount: 2500,
-        timestamp: Date.now(),
-        type: "QUICK",
-      },
-    ]);
+    useState([]);
 
   /* =========================================================
      LIVE NEWS TICKER
@@ -362,7 +484,8 @@ function AuctionDashboard({
       {
         id: 1,
         type: "start",
-        text: "AUCTION BEGINS • ROUND 01 • PLAYER AUCTION 2026",
+        text:
+          "AUCTION BEGINS • ROUND 01 • PLAYER AUCTION 2026",
       },
     ]);
 
@@ -374,7 +497,9 @@ function AuctionDashboard({
       (previousMessages) =>
         [
           {
-            id: Date.now() + Math.random(),
+            id:
+              Date.now() +
+              Math.random(),
             type,
             text: message,
           },
@@ -420,115 +545,178 @@ function AuctionDashboard({
 
   /* =========================================================
      SNAPSHOT SERIALIZER
-
-     JSON.stringify gives us a stable representation of the
-     auction state so we can detect our own realtime echo.
   ========================================================= */
 
-  const serializeSnapshot = (snapshot) =>
+  const serializeSnapshot = (
+    snapshot
+  ) =>
     JSON.stringify(snapshot);
 
   /* =========================================================
      HYDRATE FROM REMOTE
 
      IMPORTANT:
-     This function only updates local React state.
-     It does NOT write anything back to Supabase.
+     Remote hydration does not write back to Supabase.
   ========================================================= */
 
-  const hydrateFromRemote = (remoteState) => {
+  const hydrateFromRemote = (
+    remoteState
+  ) => {
     if (!remoteState) {
       return;
     }
 
     lastRemoteSnapshotRef.current =
-      serializeSnapshot(remoteState);
+      serializeSnapshot(
+        remoteState
+      );
+
+    const remotePlayerIndex = Number(
+      remoteState.currentPlayerIndex
+    );
+
+    const canonicalRemotePlayer =
+      Number.isInteger(remotePlayerIndex) &&
+      remotePlayerIndex >= 0 &&
+      remotePlayerIndex < playerQueue.length
+        ? playerQueue[remotePlayerIndex]
+        : null;
+
+    const remoteHighestBidder =
+      remoteState.highestBidder ??
+      remoteState.highest_bidder ??
+      null;
+
+    const remoteCurrentBid = Number(
+      remoteState.currentBid ??
+        remoteState.current_bid ??
+        canonicalRemotePlayer?.basePrice ??
+        500
+    );
+
+    const effectiveCurrentBid =
+      !remoteHighestBidder &&
+      canonicalRemotePlayer
+        ? canonicalRemotePlayer.basePrice
+        : remoteCurrentBid;
 
     setAuctionStatus(
-      remoteState.auctionStatus ?? "LIVE"
+      remoteState.auctionStatus ??
+        remoteState.auction_status ??
+        "LIVE"
     );
 
-    setCurrentBid(
-      remoteState.currentBid ?? 500
-    );
+    setCurrentBid(effectiveCurrentBid);
 
-    setHighestBidder(
-      remoteState.highestBidder ?? null
-    );
+    setHighestBidder(remoteHighestBidder);
 
     setSoldTeam(
-      remoteState.soldTeam ?? null
+      remoteState.soldTeam ??
+        null
     );
 
     setSoldOverlayOpen(
-      Boolean(remoteState.soldOverlayOpen)
+      Boolean(
+        remoteState.soldOverlayOpen
+      )
     );
 
     setSoldPlayers(
-      Array.isArray(remoteState.soldPlayers)
-        ? remoteState.soldPlayers
+      Array.isArray(
+        remoteState.soldPlayers
+      )
+        ? remoteState.soldPlayers.map(
+            (player) => ({
+              ...player,
+
+              image:
+                player.image ||
+                PLAYER_IMAGE_MAP[
+                  player.id
+                ] ||
+                null,
+            })
+          )
         : []
     );
 
     setTeams(
-      Array.isArray(remoteState.teams)
-        ? remoteState.teams.map((team) => {
-            const teamAssetId = String(
-              team.id ?? ""
-            )
-              .trim()
-              .replace(/^TEAM\s+/i, "team-")
-              .toLowerCase();
+      Array.isArray(
+        remoteState.teams
+      )
+        ? remoteState.teams.map(
+            (team) => {
+              const teamAssetId =
+                String(
+                  team.id ?? ""
+                )
+                  .trim()
+                  .replace(
+                    /^TEAM\s+/i,
+                    "team-"
+                  )
+                  .toLowerCase();
 
-            return {
-              ...team,
-              logo:
-                team.logo ||
-                `/assets/teams/${teamAssetId}.png`,
-              owner:
-                team.owner ||
-                `/assets/owners/${teamAssetId}.webp`,
-            };
-          })
+              return {
+                ...team,
+
+                logo:
+                  team.logo ||
+                  `/assets/teams/${teamAssetId}.png`,
+
+                owner:
+                  team.owner ||
+                  `/assets/owners/${teamAssetId}.webp`,
+              };
+            }
+          )
         : []
     );
 
     setCurrentPlayerIndex(
-      Number.isInteger(
-        remoteState.currentPlayerIndex
-      )
-        ? remoteState.currentPlayerIndex
+      Number.isInteger(remotePlayerIndex) &&
+        remotePlayerIndex >= 0 &&
+        remotePlayerIndex < playerQueue.length
+        ? remotePlayerIndex
         : 0
     );
 
     setBidHistory(
-      Array.isArray(remoteState.bidHistory)
+      Array.isArray(
+        remoteState.bidHistory
+      )
         ? remoteState.bidHistory
         : []
     );
 
     setTickerMessages(
-      Array.isArray(remoteState.tickerMessages) &&
-        remoteState.tickerMessages.length
+      Array.isArray(
+        remoteState.tickerMessages
+      ) &&
+        remoteState.tickerMessages
+          .length
         ? remoteState.tickerMessages
         : [
             {
               id: 1,
               type: "start",
-              text: "AUCTION BEGINS • ROUND 01 • PLAYER AUCTION 2026",
+              text:
+                "AUCTION BEGINS • ROUND 01 • PLAYER AUCTION 2026",
             },
           ]
     );
 
     const remoteTimerStartedAt =
-      remoteState.timerStartedAt ?? null;
+      remoteState.timerStartedAt ??
+      null;
 
     setTimerStartedAt(
       remoteTimerStartedAt
     );
 
     if (
-      remoteState.auctionStatus === "LIVE" &&
+      remoteState.auctionStatus ===
+        "LIVE" &&
       remoteTimerStartedAt
     ) {
       setBidTimeRemaining(
@@ -545,7 +733,8 @@ function AuctionDashboard({
     } else {
       setBidTimeRemaining(
         Number(
-          remoteState.bidTimeRemaining ?? 120
+          remoteState.bidTimeRemaining ??
+            120
         )
       );
     }
@@ -558,25 +747,37 @@ function AuctionDashboard({
   useEffect(() => {
     let mounted = true;
 
-    const applyRealtimeState = (payload) => {
-      if (!mounted || !payload.new?.state) {
+    const applyRealtimeState = (
+      payload
+    ) => {
+      if (
+        !mounted ||
+        !payload.new?.state
+      ) {
         return;
       }
 
-      const remoteState = payload.new.state;
+      const remoteState =
+        payload.new.state;
+
       const remoteSnapshot =
-        serializeSnapshot(remoteState);
+        serializeSnapshot(
+          remoteState
+        );
+
       const remoteUpdatedAt =
-        payload.new.updated_at ?? null;
-      const remoteUpdatedAtMs = remoteUpdatedAt
-        ? Date.parse(remoteUpdatedAt)
-        : 0;
+        payload.new.updated_at ??
+        null;
+
+      const remoteUpdatedAtMs =
+        remoteUpdatedAt
+          ? Date.parse(
+              remoteUpdatedAt
+            )
+          : 0;
 
       /*
        * Ignore our own realtime echo.
-       *
-       * The timestamp guard also protects us if an older
-       * realtime event arrives after a newer local write.
        */
       if (
         remoteSnapshot ===
@@ -584,9 +785,13 @@ function AuctionDashboard({
       ) {
         lastRemoteSnapshotRef.current =
           remoteSnapshot;
+
         return;
       }
 
+      /*
+       * Ignore older/equal remote updates.
+       */
       if (
         remoteUpdatedAtMs > 0 &&
         remoteUpdatedAtMs <=
@@ -598,267 +803,338 @@ function AuctionDashboard({
       lastRemoteSnapshotRef.current =
         remoteSnapshot;
 
-      hydrateFromRemote(remoteState);
+      hydrateFromRemote(
+        remoteState
+      );
+
       setSyncReady(true);
     };
 
-    const initializeRealtime = async () => {
-      const { data, error } =
-        await supabase
-          .from("auction_state")
-          .select("state, updated_at")
-          .eq("id", 1)
-          .maybeSingle();
+    const initializeRealtime =
+      async () => {
+        const { data, error } =
+          await supabase
+            .from("auction_state")
+            .select(
+              "state, updated_at"
+            )
+            .eq("id", 1)
+            .maybeSingle();
 
-      if (!mounted) {
-        return;
-      }
-
-      if (error) {
-        console.error(
-          "DPL auction state load failed:",
-          error
-        );
-        return;
-      }
-
-      if (data?.state) {
-        const remoteSnapshot =
-          serializeSnapshot(data.state);
-
-        lastRemoteSnapshotRef.current =
-          remoteSnapshot;
-
-        lastPersistedSnapshotRef.current =
-          remoteSnapshot;
-
-        const remoteUpdatedAtMs = data.updated_at
-          ? Date.parse(data.updated_at)
-          : 0;
-
-        if (remoteUpdatedAtMs > 0) {
-          lastLocalUpdatedAtMsRef.current =
-            remoteUpdatedAtMs;
+        if (!mounted) {
+          return;
         }
 
-        hydrateFromRemote(data.state);
-        setSyncReady(true);
-      } else if (!readOnly) {
-        const initialTimerStartedAt =
-          Date.now();
-        const initialUpdatedAt =
-          new Date().toISOString();
+        if (error) {
+          console.error(
+            "DPL auction state load failed:",
+            error
+          );
 
-        const initialState = {
-          auctionStatus: "LIVE",
-          currentBid: 2500,
-          highestBidder: "TEAM 03",
-          soldTeam: null,
-          soldOverlayOpen: false,
-          soldPlayers: [],
-          teams,
-          currentPlayerIndex: 0,
-          bidHistory,
-          tickerMessages,
-          timerStartedAt:
-            initialTimerStartedAt,
-          bidTimeRemaining: 120,
-        };
+          return;
+        }
 
-        const initialSnapshot =
-          serializeSnapshot(initialState);
+        if (data?.state) {
+          const remoteSnapshot =
+            serializeSnapshot(
+              data.state
+            );
 
-        lastPersistedSnapshotRef.current =
-          initialSnapshot;
+          lastRemoteSnapshotRef.current =
+            remoteSnapshot;
 
-        lastRemoteSnapshotRef.current =
-          initialSnapshot;
+          lastPersistedSnapshotRef.current =
+            remoteSnapshot;
 
-        lastLocalSnapshotRef.current =
-          initialSnapshot;
+          const remoteUpdatedAtMs =
+            data.updated_at
+              ? Date.parse(
+                  data.updated_at
+                )
+              : 0;
 
-        lastLocalUpdatedAtMsRef.current =
-          Date.parse(initialUpdatedAt);
+          if (
+            remoteUpdatedAtMs > 0
+          ) {
+            lastLocalUpdatedAtMsRef.current =
+              remoteUpdatedAtMs;
+          }
 
-        setTimerStartedAt(
-          initialTimerStartedAt
-        );
+          hydrateFromRemote(
+            data.state
+          );
 
-        const { error: insertError } =
-          await supabase
+          setSyncReady(true);
+        } else if (!readOnly) {
+          const initialTimerStartedAt =
+            Date.now();
+
+          const initialUpdatedAt =
+            new Date().toISOString();
+
+          const initialState = {
+            auctionStatus: "LIVE",
+
+            currentBid: playerQueue[0]?.basePrice ?? 500,
+
+            highestBidder: null,
+
+            soldTeam: null,
+
+            soldOverlayOpen:
+              false,
+
+            soldPlayers: [],
+
+            teams,
+
+            currentPlayerIndex: 0,
+
+            bidHistory: [],
+
+            tickerMessages,
+
+            timerStartedAt:
+              initialTimerStartedAt,
+
+            bidTimeRemaining: 120,
+          };
+
+          const initialSnapshot =
+            serializeSnapshot(
+              initialState
+            );
+
+          lastPersistedSnapshotRef.current =
+            initialSnapshot;
+
+          lastRemoteSnapshotRef.current =
+            initialSnapshot;
+
+          lastLocalSnapshotRef.current =
+            initialSnapshot;
+
+          lastLocalUpdatedAtMsRef.current =
+            Date.parse(
+              initialUpdatedAt
+            );
+
+          setTimerStartedAt(
+            initialTimerStartedAt
+          );
+
+          const {
+            error: insertError,
+          } = await supabase
             .from("auction_state")
             .insert({
               id: 1,
               state: initialState,
-              updated_at: initialUpdatedAt,
+              updated_at:
+                initialUpdatedAt,
             });
 
-        if (
-          insertError &&
-          insertError.code !== "23505"
-        ) {
-          console.error(
-            "DPL auction state initialization failed:",
-            insertError
-          );
+          if (
+            insertError &&
+            insertError.code !==
+              "23505"
+          ) {
+            console.error(
+              "DPL auction state initialization failed:",
+              insertError
+            );
 
-          lastLocalSnapshotRef.current = null;
-          lastLocalUpdatedAtMsRef.current = 0;
-          return;
+            lastLocalSnapshotRef.current =
+              null;
+
+            lastLocalUpdatedAtMsRef.current =
+              0;
+
+            return;
+          }
+
+          if (
+            insertError?.code ===
+            "23505"
+          ) {
+            lastLocalSnapshotRef.current =
+              null;
+
+            lastLocalUpdatedAtMsRef.current =
+              0;
+          }
+
+          setSyncReady(true);
+        } else {
+          setSyncReady(true);
         }
-
-        if (insertError?.code === "23505") {
-          /* Another client initialized the row first. */
-          lastLocalSnapshotRef.current = null;
-          lastLocalUpdatedAtMsRef.current = 0;
-        }
-
-        setSyncReady(true);
-      } else {
-        setSyncReady(true);
-      }
-    };
+      };
 
     initializeRealtime();
 
-    const channel = supabase
-      .channel("dpl-auction-state")
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "auction_state",
-          filter: "id=eq.1",
-        },
-        applyRealtimeState
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "auction_state",
-          filter: "id=eq.1",
-        },
-        applyRealtimeState
-      )
-      .subscribe();
+    const channel =
+      supabase
+        .channel(
+          "dpl-auction-state"
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "auction_state",
+            filter: "id=eq.1",
+          },
+          applyRealtimeState
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "auction_state",
+            filter: "id=eq.1",
+          },
+          applyRealtimeState
+        )
+        .subscribe();
 
-    realtimeChannelRef.current = channel;
+    realtimeChannelRef.current =
+      channel;
 
     return () => {
       mounted = false;
 
-      if (persistTimerRef.current) {
+      if (
+        persistTimerRef.current
+      ) {
         clearTimeout(
           persistTimerRef.current
         );
-        persistTimerRef.current = null;
+
+        persistTimerRef.current =
+          null;
       }
 
-      pendingPersistRef.current = null;
+      pendingPersistRef.current =
+        null;
 
-      if (realtimeChannelRef.current) {
+      if (
+        realtimeChannelRef.current
+      ) {
         supabase.removeChannel(
           realtimeChannelRef.current
         );
       }
 
-      realtimeChannelRef.current = null;
+      realtimeChannelRef.current =
+        null;
     };
   }, [readOnly]);
 
   /* =========================================================
      PERSIST AUCTION STATE
-
-     Local auction actions are queued and written one at a
-     time. This prevents overlapping Supabase writes and
-     prevents Realtime from fighting with the operator UI.
   ========================================================= */
 
-  const flushPendingPersist = async () => {
+  const flushPendingPersist =
+    async () => {
+      if (
+        readOnly ||
+        persistInFlightRef.current
+      ) {
+        return;
+      }
+
+      const snapshot =
+        pendingPersistRef.current;
+
+      if (!snapshot) {
+        return;
+      }
+
+      pendingPersistRef.current =
+        null;
+
+      persistInFlightRef.current =
+        true;
+
+      const snapshotString =
+        serializeSnapshot(
+          snapshot
+        );
+
+      const updatedAt =
+        new Date().toISOString();
+
+      const updatedAtMs =
+        Date.parse(updatedAt);
+
+      lastPersistedSnapshotRef.current =
+        snapshotString;
+
+      lastLocalSnapshotRef.current =
+        snapshotString;
+
+      lastLocalUpdatedAtMsRef.current =
+        updatedAtMs;
+
+      const { error } =
+        await supabase
+          .from("auction_state")
+          .update({
+            state: snapshot,
+            updated_at: updatedAt,
+          })
+          .eq("id", 1);
+
+      persistInFlightRef.current =
+        false;
+
+      if (error) {
+        console.error(
+          "DPL auction state save failed:",
+          error
+        );
+
+        lastPersistedSnapshotRef.current =
+          lastRemoteSnapshotRef.current;
+
+        lastLocalSnapshotRef.current =
+          null;
+
+        lastLocalUpdatedAtMsRef.current =
+          0;
+      } else {
+        lastRemoteSnapshotRef.current =
+          snapshotString;
+      }
+
+      if (
+        pendingPersistRef.current
+      ) {
+        void flushPendingPersist();
+      }
+    };
+
+  const queueAuctionPersist = (
+    snapshot
+  ) => {
+    if (readOnly) {
+      return;
+    }
+
+    pendingPersistRef.current =
+      snapshot;
+
     if (
-      readOnly ||
       persistInFlightRef.current
     ) {
       return;
     }
 
-    const snapshot =
-      pendingPersistRef.current;
-
-    if (!snapshot) {
-      return;
-    }
-
-    pendingPersistRef.current = null;
-    persistInFlightRef.current = true;
-
-    const snapshotString =
-      serializeSnapshot(snapshot);
-    const updatedAt =
-      new Date().toISOString();
-    const updatedAtMs =
-      Date.parse(updatedAt);
-
-    lastPersistedSnapshotRef.current =
-      snapshotString;
-    lastLocalSnapshotRef.current =
-      snapshotString;
-    lastLocalUpdatedAtMsRef.current =
-      updatedAtMs;
-
-    const { error } = await supabase
-      .from("auction_state")
-      .update({
-        state: snapshot,
-        updated_at: updatedAt,
-      })
-      .eq("id", 1);
-
-    persistInFlightRef.current = false;
-
-    if (error) {
-      console.error(
-        "DPL auction state save failed:",
-        error
-      );
-
-      /*
-       * Do not keep a failed write marked as current.
-       * The next local state change can retry normally.
-       */
-      lastPersistedSnapshotRef.current =
-        lastRemoteSnapshotRef.current;
-      lastLocalSnapshotRef.current = null;
-      lastLocalUpdatedAtMsRef.current = 0;
-    } else {
-      lastRemoteSnapshotRef.current =
-        snapshotString;
-    }
-
-    /*
-     * If another local action happened while the previous
-     * request was in flight, immediately save the newest one.
-     */
-    if (pendingPersistRef.current) {
-      void flushPendingPersist();
-    }
-  };
-
-  const queueAuctionPersist = (snapshot) => {
-    if (readOnly) {
-      return;
-    }
-
-    pendingPersistRef.current = snapshot;
-
-    if (persistInFlightRef.current) {
-      return;
-    }
-
-    if (persistTimerRef.current) {
+    if (
+      persistTimerRef.current
+    ) {
       clearTimeout(
         persistTimerRef.current
       );
@@ -866,7 +1142,9 @@ function AuctionDashboard({
 
     persistTimerRef.current =
       setTimeout(() => {
-        persistTimerRef.current = null;
+        persistTimerRef.current =
+          null;
+
         void flushPendingPersist();
       }, 100);
   };
@@ -880,9 +1158,10 @@ function AuctionDashboard({
     }
 
     const snapshotString =
-      serializeSnapshot(auctionSnapshot);
+      serializeSnapshot(
+        auctionSnapshot
+      );
 
-    /* Already synchronized. */
     if (
       snapshotString ===
       lastPersistedSnapshotRef.current
@@ -890,16 +1169,13 @@ function AuctionDashboard({
       return;
     }
 
-    /*
-     * This state came from another client through Realtime.
-     * Never write it straight back to the database.
-     */
     if (
       snapshotString ===
       lastRemoteSnapshotRef.current
     ) {
       lastPersistedSnapshotRef.current =
         snapshotString;
+
       return;
     }
 
@@ -908,10 +1184,6 @@ function AuctionDashboard({
     );
 
     return () => {
-      /*
-       * Do not cancel an in-flight request here. Only cancel
-       * the debounce timer when React schedules a newer state.
-       */
       if (
         persistTimerRef.current &&
         !persistInFlightRef.current
@@ -919,7 +1191,9 @@ function AuctionDashboard({
         clearTimeout(
           persistTimerRef.current
         );
-        persistTimerRef.current = null;
+
+        persistTimerRef.current =
+          null;
       }
     };
   }, [
@@ -1185,6 +1459,7 @@ function AuctionDashboard({
       setManualError(
         "Auction is not currently live."
       );
+
       return;
     }
 
@@ -1192,6 +1467,7 @@ function AuctionDashboard({
       setManualError(
         "Please select a team."
       );
+
       return;
     }
 
@@ -1205,6 +1481,7 @@ function AuctionDashboard({
       setManualError(
         "Enter a valid bid amount."
       );
+
       return;
     }
 
@@ -1216,6 +1493,7 @@ function AuctionDashboard({
           "en-IN"
         )}.`
       );
+
       return;
     }
 
@@ -1229,6 +1507,7 @@ function AuctionDashboard({
       setManualError(
         "Selected team was not found."
       );
+
       return;
     }
 
@@ -1238,6 +1517,7 @@ function AuctionDashboard({
       setManualError(
         "The current highest bidder cannot bid again."
       );
+
       return;
     }
 
@@ -1250,6 +1530,7 @@ function AuctionDashboard({
           "en-IN"
         )} available.`
       );
+
       return;
     }
 
@@ -1264,6 +1545,7 @@ function AuctionDashboard({
       setManualError(
         "Unable to place this bid."
       );
+
       return;
     }
 
@@ -1301,7 +1583,10 @@ function AuctionDashboard({
     );
 
     setSoldTeam(null);
-    setSoldOverlayOpen(false);
+
+    setSoldOverlayOpen(
+      false
+    );
 
     addTickerMessage(
       `AUCTION LIVE • BIDDING RESUMED • ${currentPlayer.name}`,
@@ -1379,11 +1664,14 @@ function AuctionDashboard({
       country:
         currentPlayer.country,
 
-      age:
-        currentPlayer.age,
+      registerNumber:
+        currentPlayer.registerNumber,
 
-      style:
-        currentPlayer.style,
+      year:
+        currentPlayer.year,
+
+      department:
+        currentPlayer.department,
 
       image:
         currentPlayer.image,
@@ -1544,9 +1832,7 @@ function AuctionDashboard({
     );
 
     addTickerMessage(
-      `NEXT PLAYER • ${playerQueue[nextIndex].number} • ${
-        playerQueue[nextIndex].name
-      } • BASE PRICE ₹${playerQueue[
+      `NEXT PLAYER • ${playerQueue[nextIndex].number} • ${playerQueue[nextIndex].name} • BASE PRICE ₹${playerQueue[
         nextIndex
       ].basePrice.toLocaleString(
         "en-IN"
@@ -1752,7 +2038,10 @@ function AuctionDashboard({
             .toLowerCase()
             .includes(query)
       );
-    }, [playerSearch]);
+    }, [
+      playerSearch,
+      clubMembers,
+    ]);
 
   const filteredOutsideParticipants =
     useMemo(() => {
@@ -1774,7 +2063,10 @@ function AuctionDashboard({
             .toLowerCase()
             .includes(query)
       );
-    }, [playerSearch]);
+    }, [
+      playerSearch,
+      outsideParticipants,
+    ]);
 
   const totalKeptPlayers =
     clubMembers.length +
@@ -1829,7 +2121,8 @@ function AuctionDashboard({
           {
             id: 999,
             type: "start",
-            text: "AUCTION BEGINS • ROUND 01 • PLAYER AUCTION 2026",
+            text:
+              "AUCTION BEGINS • ROUND 01 • PLAYER AUCTION 2026",
           },
         ];
 
@@ -1877,6 +2170,7 @@ function AuctionDashboard({
 
           <div>
             <h1>DPL AUCTION</h1>
+
             <span>
               PLAYER AUCTION 2026
             </span>
@@ -1973,7 +2267,9 @@ function AuctionDashboard({
 
             <div className="auction-status">
 
-              <span>STATUS</span>
+              <span>
+                STATUS
+              </span>
 
               <strong
                 className={`status-${auctionStatus.toLowerCase()}`}
@@ -2124,11 +2420,15 @@ function AuctionDashboard({
               <div className="player-info">
 
                 <span className="player-category">
-                  {currentPlayer.category}
+                  {
+                    currentPlayer.category
+                  }
                 </span>
 
                 <h2>
-                  {currentPlayer.name}
+                  {
+                    currentPlayer.name
+                  }
                 </h2>
 
                 <p className="player-country">
@@ -2142,24 +2442,24 @@ function AuctionDashboard({
 
                   <div>
                     <span>
-                      AGE
+                      YEAR
                     </span>
 
                     <strong>
                       {
-                        currentPlayer.age
+                        currentPlayer.year
                       }
                     </strong>
                   </div>
 
                   <div>
                     <span>
-                      STYLE
+                      DEPARTMENT
                     </span>
 
                     <strong>
                       {
-                        currentPlayer.style
+                        currentPlayer.department
                       }
                     </strong>
                   </div>
@@ -2306,6 +2606,7 @@ function AuctionDashboard({
                 <span>
                   ＋
                 </span>
+
                 MANUAL BID
               </button>
             )}
@@ -2587,15 +2888,49 @@ function AuctionDashboard({
 
             <div className="upcoming-player-card">
 
-              <div className="upcoming-player-number">
-                {nextPlayer.number}
+              <div
+                className="upcoming-player-number"
+                style={{
+                  overflow:
+                    "hidden",
+                  width: "64px",
+                  height: "64px",
+                  minWidth: "64px",
+                  borderRadius:
+                    "50%",
+                }}
+              >
+                {nextPlayer.image ? (
+                  <img
+                    src={
+                      nextPlayer.image
+                    }
+                    alt={
+                      nextPlayer.name
+                    }
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit:
+                        "cover",
+                      display:
+                        "block",
+                    }}
+                  />
+                ) : (
+                  nextPlayer.number
+                )}
               </div>
 
               <div className="upcoming-player-info">
 
                 <span>
                   {
-                    nextPlayer.category
+                    nextPlayer.department
+                  }{" "}
+                  •{" "}
+                  {
+                    nextPlayer.year
                   }
                 </span>
 
@@ -2615,7 +2950,9 @@ function AuctionDashboard({
               </div>
 
               <div className="upcoming-player-set">
-                {nextPlayer.set}
+                {
+                  nextPlayer.set
+                }
               </div>
 
             </div>
@@ -2679,6 +3016,66 @@ function AuctionDashboard({
                       {player.number}
                     </span>
 
+                    {/* PARTICIPANT PHOTO */}
+
+                    <div
+                      style={{
+                        width:
+                          "42px",
+                        height:
+                          "42px",
+                        minWidth:
+                          "42px",
+                        borderRadius:
+                          "50%",
+                        overflow:
+                          "hidden",
+                        background:
+                          "#151a20",
+                        border:
+                          "1px solid rgba(255,255,255,0.08)",
+                        display:
+                          "flex",
+                        alignItems:
+                          "center",
+                        justifyContent:
+                          "center",
+                        fontWeight:
+                          800,
+                        color:
+                          "#00e676",
+                        marginRight:
+                          "12px",
+                      }}
+                    >
+                      {player.image ? (
+                        <img
+                          src={
+                            player.image
+                          }
+                          alt={
+                            player.name
+                          }
+                          style={{
+                            width:
+                              "100%",
+                            height:
+                              "100%",
+                            objectFit:
+                              "cover",
+                            display:
+                              "block",
+                          }}
+                        />
+                      ) : (
+                        player.name
+                          .charAt(
+                            0
+                          )
+                          .toUpperCase()
+                      )}
+                    </div>
+
                     <div className="auction-player-row-info">
 
                       <strong>
@@ -2689,11 +3086,11 @@ function AuctionDashboard({
 
                       <span>
                         {
-                          player.category
+                          player.department
                         }{" "}
                         •{" "}
                         {
-                          player.country
+                          player.year
                         }
                       </span>
 
@@ -2743,7 +3140,10 @@ function AuctionDashboard({
             <div className="auction-news-track">
 
               {tickerItems.map(
-                (item, index) => (
+                (
+                  item,
+                  index
+                ) => (
                   <div
                     key={`${item.id}-${index}`}
                     className={`auction-news-item ticker-${item.type}`}
@@ -3178,7 +3578,9 @@ function AuctionDashboard({
 
             <div className="kept-player-sets">
 
-              {/* CLUB MEMBERS */}
+              {/* =================================================
+                  CLUB MEMBERS
+              ================================================= */}
 
               <section className="kept-player-set">
 
@@ -3255,7 +3657,11 @@ function AuctionDashboard({
 
                             <span>
                               {
-                                player.category
+                                player.department
+                              }{" "}
+                              •{" "}
+                              {
+                                player.year
                               }
                             </span>
 
@@ -3279,7 +3685,9 @@ function AuctionDashboard({
 
               </section>
 
-              {/* OUTSIDE PARTICIPANTS */}
+              {/* =================================================
+                  OUTSIDE PARTICIPANTS
+              ================================================= */}
 
               <section className="kept-player-set">
 
@@ -3356,7 +3764,11 @@ function AuctionDashboard({
 
                             <span>
                               {
-                                player.category
+                                player.department
+                              }{" "}
+                              •{" "}
+                              {
+                                player.year
                               }
                             </span>
 
@@ -3509,12 +3921,12 @@ function AuctionDashboard({
               <div>
 
                 <span>
-                  AGE
+                  YEAR
                 </span>
 
                 <strong>
                   {
-                    selectedKeptPlayer.age
+                    selectedKeptPlayer.year
                   }
                 </strong>
 
@@ -3523,12 +3935,27 @@ function AuctionDashboard({
               <div>
 
                 <span>
-                  STYLE
+                  DEPARTMENT
                 </span>
 
                 <strong>
                   {
-                    selectedKeptPlayer.style
+                    selectedKeptPlayer.department
+                  }
+                </strong>
+
+              </div>
+
+              <div>
+
+                <span>
+                  REGISTER NO.
+                </span>
+
+                <strong>
+                  {
+                    selectedKeptPlayer.registerNumber ||
+                    "NOT PROVIDED"
                   }
                 </strong>
 
