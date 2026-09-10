@@ -64,14 +64,15 @@ const clubMembers = [
 const outsideParticipants = [
   {
     id: "OUT-01",
-    name: "Ajith Kumar G",
-    registerNumber: "2127250801007",
-    department: "IT",
-    year: "2nd Year",
+    name: "Alagu Manikandan S",
+    registerNumber: "2127230502006",
+    department: "AD",
+    year: "4th Year",
     category: "Outside Participant",
-    image: "/assets/players/Ajith Kumar G.jpeg",
-    basePrice: 500,
+    image: "/assets/players/ALAGU MANIKANDAN S .jpeg",
+    basePrice: 2000,
   },
+  
   {
     id: "OUT-02",
     name: "Prakash M",
@@ -204,13 +205,13 @@ const outsideParticipants = [
   },
   {
     id: "OUT-15",
-    name: "Alagu Manikandan S",
-    registerNumber: "2127230502006",
-    department: "AD",
-    year: "4th Year",
+    name: "Ajith Kumar G",
+    registerNumber: "2127250801007",
+    department: "IT",
+    year: "2nd Year",
     category: "Outside Participant",
-    image: "/assets/players/ALAGU MANIKANDAN S .jpeg",
-    basePrice: 2000,
+    image: "/assets/players/Ajith Kumar G.jpeg",
+    basePrice: 500,
   },
   {
     id: "OUT-16",
