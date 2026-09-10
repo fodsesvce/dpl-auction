@@ -207,6 +207,37 @@ const withPlayerImage = (player) => ({
     null,
 });
 
+/* =========================================================
+   TEAM OWNER NAMES
+
+   These names match src/data/team.js.
+   The operator dashboard keeps its existing auction team
+   order, while owner names are resolved from this map so
+   they are never shown as the generic "OWNER" label.
+========================================================= */
+
+const TEAM_OWNER_NAME_BY_AUCTION_NAME = {
+  "MELBOURNE TECH STARS": "Sharan",
+  "CANBERRA CODE COMETS": "Dharshika",
+  "TOWNSVILLE TECH TITANS": "Yeseswini",
+  "SYDNEY CLOUD THUNDER": "Kaviya",
+  "DARWIN DATA CYCLONES": "Kanisha",
+  "SYDNEY SILICON SIXERS": "Priyadharshini",
+  "GEELONG GENGARS": "Sandhoshivany G N",
+  "BRISBANE BYTE HEAT": "Harish",
+  "PERTH PIXEL SCORCHERS": "Jai Ganesh",
+  "NEWCASTLE NETWORK BLAZERS": "Tejashree",
+};
+
+const getTeamOwnerName = (team) =>
+  TEAM_OWNER_NAME_BY_AUCTION_NAME[
+    String(team?.name || "")
+      .trim()
+      .toUpperCase()
+  ] ||
+  team?.ownerName ||
+  "OWNER";
+
 function AuctionDashboard({
   readOnly = false,
   currentUser = null,
@@ -310,6 +341,7 @@ function AuctionDashboard({
         id: "TEAM 01",
         shortName: "STARS",
         name: "MELBOURNE TECH STARS",
+        ownerName: "Sharan",
         logo: "/assets/teams/team-01.png",
         owner: "/assets/owners/team-01.webp",
         amount: STARTING_PURSE,
@@ -318,6 +350,7 @@ function AuctionDashboard({
         id: "TEAM 02",
         shortName: "COMETS",
         name: "CANBERRA CODE COMETS",
+        ownerName: "Dharshika",
         logo: "/assets/teams/team-02.png",
         owner: "/assets/owners/team-02.webp",
         amount: STARTING_PURSE,
@@ -326,6 +359,7 @@ function AuctionDashboard({
         id: "TEAM 03",
         shortName: "TITANS",
         name: "TOWNSVILLE TECH TITANS",
+        ownerName: "Yeseswini",
         logo: "/assets/teams/team-03.png",
         owner: "/assets/owners/team-03.webp",
         amount: STARTING_PURSE,
@@ -334,6 +368,7 @@ function AuctionDashboard({
         id: "TEAM 04",
         shortName: "THUNDER",
         name: "SYDNEY CLOUD THUNDER",
+        ownerName: "Kaviya",
         logo: "/assets/teams/team-04.png",
         owner: "/assets/owners/team-04.webp",
         amount: STARTING_PURSE,
@@ -342,6 +377,7 @@ function AuctionDashboard({
         id: "TEAM 05",
         shortName: "CYCLONES",
         name: "DARWIN DATA CYCLONES",
+        ownerName: "Kanisha",
         logo: "/assets/teams/team-05.png",
         owner: "/assets/owners/team-05.webp",
         amount: STARTING_PURSE,
@@ -350,6 +386,7 @@ function AuctionDashboard({
         id: "TEAM 06",
         shortName: "SIXERS",
         name: "SYDNEY SILICON SIXERS",
+        ownerName: "Priyadharshini",
         logo: "/assets/teams/team-06.png",
         owner: "/assets/owners/team-06.webp",
         amount: STARTING_PURSE,
@@ -358,6 +395,7 @@ function AuctionDashboard({
         id: "TEAM 07",
         shortName: "GENGARS",
         name: "GEELONG GENGARS",
+        ownerName: "Sandhoshivany G N",
         logo: "/assets/teams/team-07.png",
         owner: "/assets/owners/team-07.webp",
         amount: STARTING_PURSE,
@@ -366,6 +404,7 @@ function AuctionDashboard({
         id: "TEAM 08",
         shortName: "BYTE HEAT",
         name: "BRISBANE BYTE HEAT",
+        ownerName: "Harish",
         logo: "/assets/teams/team-08.png",
         owner: "/assets/owners/team-08.webp",
         amount: STARTING_PURSE,
@@ -374,6 +413,7 @@ function AuctionDashboard({
         id: "TEAM 09",
         shortName: "SCORCHERS",
         name: "PERTH PIXEL SCORCHERS",
+        ownerName: "Jai Ganesh",
         logo: "/assets/teams/team-09.png",
         owner: "/assets/owners/team-09.webp",
         amount: STARTING_PURSE,
@@ -382,6 +422,7 @@ function AuctionDashboard({
         id: "TEAM 10",
         shortName: "BLAZERS",
         name: "NEWCASTLE NETWORK BLAZERS",
+        ownerName: "Tejashree",
         logo: "/assets/teams/team-10.png",
         owner: "/assets/owners/team-10.webp",
         amount: STARTING_PURSE,
@@ -659,6 +700,9 @@ function AuctionDashboard({
 
               return {
                 ...team,
+
+                ownerName:
+                  getTeamOwnerName(team),
 
                 logo:
                   team.logo ||
@@ -2733,7 +2777,7 @@ function AuctionDashboard({
                         </span>
 
                         <strong>
-                          OWNER
+                          {getTeamOwnerName(team)}
                         </strong>
 
                       </div>
