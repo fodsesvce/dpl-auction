@@ -207,6 +207,32 @@ const withPlayerImage = (player) => ({
     null,
 });
 
+/* =========================================================
+   TEAM OWNER NAME MAP
+========================================================= */
+
+const TEAM_OWNER_NAME_BY_ID = {
+  "TEAM 01": "Sharan",
+  "TEAM 02": "Dharshika",
+  "TEAM 03": "Yeseswini",
+  "TEAM 04": "Kaviya",
+  "TEAM 05": "Kanisha",
+  "TEAM 06": "Priyadharshini",
+  "TEAM 07": "Sandhoshivany G N",
+  "TEAM 08": "Harish",
+  "TEAM 09": "Jai Ganesh",
+  "TEAM 10": "Tejashree",
+};
+
+const getTeamOwnerName = (team) => {
+  return (
+    team.ownerName ||
+    TEAM_OWNER_NAME_BY_ID[team.id] ||
+    "OWNER"
+  );
+};
+
+
 function AuctionDashboard({
   readOnly = false,
   currentUser = null,
@@ -2733,7 +2759,7 @@ function AuctionDashboard({
                         </span>
 
                         <strong>
-                          OWNER
+                          {getTeamOwnerName(team)}
                         </strong>
 
                       </div>
