@@ -733,37 +733,42 @@ function AuctionDashboard({
     );
 
     const remoteTimerStartedAt =
-      remoteState.timerStartedAt ??
-      null;
+  remoteState.timerStartedAt ??
+  null;
 
-    setTimerStartedAt(
-      remoteTimerStartedAt
-    );
+setTimerStartedAt(
+  remoteTimerStartedAt
+);
 
-    if (
-      remoteState.auctionStatus ===
-        "LIVE" &&
-      remoteTimerStartedAt
-    ) {
-      setBidTimeRemaining(
-        Math.max(
-          0,
-          60 -
-  Math.floor(
-    (Date.now() -
-      remoteTimerStartedAt) /
-      1000
-  )
+if (
+  remoteState.auctionStatus ===
+    "LIVE" &&
+  remoteTimerStartedAt
+) {
+  setBidTimeRemaining(
+    Math.max(
+      0,
+      60 -
+        Math.floor(
+          (Date.now() -
+            remoteTimerStartedAt) /
+            1000
         )
-      );
-    } else {
-      setBidTimeRemaining(
-        Number(
-          remoteState.bidTimeRemaining ??
-  60
-        )
-      );
-    }
+    )
+  );
+} else if (!remoteHighestBidder) {
+  setBidTimeRemaining(60);
+} else {
+  setBidTimeRemaining(
+    Math.min(
+      60,
+      Number(
+        remoteState.bidTimeRemaining ??
+          60
+      )
+    )
+  );
+}
   };
 
   /* =========================================================
