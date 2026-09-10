@@ -239,7 +239,7 @@ function AuctionDashboard({
     useState(false);
 
   const [bidTimeRemaining, setBidTimeRemaining] =
-    useState(120);
+  useState(60);
 
   const [timerStartedAt, setTimerStartedAt] =
     useState(null);
@@ -722,19 +722,19 @@ function AuctionDashboard({
       setBidTimeRemaining(
         Math.max(
           0,
-          120 -
-            Math.floor(
-              (Date.now() -
-                remoteTimerStartedAt) /
-                1000
-            )
+          60 -
+  Math.floor(
+    (Date.now() -
+      remoteTimerStartedAt) /
+      1000
+  )
         )
       );
     } else {
       setBidTimeRemaining(
         Number(
           remoteState.bidTimeRemaining ??
-            120
+  60
         )
       );
     }
@@ -897,7 +897,7 @@ function AuctionDashboard({
             timerStartedAt:
               initialTimerStartedAt,
 
-            bidTimeRemaining: 120,
+            bidTimeRemaining: 60,
           };
 
           const initialSnapshot =
@@ -1213,7 +1213,7 @@ function AuctionDashboard({
   ]);
 
   /* =========================================================
-     2-MINUTE BIDDING TIMER
+     1-MINUTE BIDDING TIMER
   ========================================================= */
 
   useEffect(() => {
@@ -1228,12 +1228,12 @@ function AuctionDashboard({
       const remaining =
         Math.max(
           0,
-          120 -
-            Math.floor(
-              (Date.now() -
-                timerStartedAt) /
-                1000
-            )
+          60 -
+  Math.floor(
+    (Date.now() -
+      timerStartedAt) /
+      1000
+  )
         );
 
       setBidTimeRemaining(
@@ -1360,8 +1360,8 @@ function AuctionDashboard({
     );
 
     setBidTimeRemaining(
-      120
-    );
+  60
+);
 
     setBidHistory(
       (previousHistory) =>
@@ -1572,7 +1572,7 @@ function AuctionDashboard({
       Date.now() -
         Math.max(
           0,
-          120 -
+          60 -
             bidTimeRemaining
         ) *
           1000
@@ -1812,7 +1812,7 @@ function AuctionDashboard({
     );
 
     setBidTimeRemaining(
-      120
+      60
     );
 
     setSoldTeam(null);
@@ -1918,7 +1918,7 @@ function AuctionDashboard({
     );
 
     setBidTimeRemaining(
-      120
+      60
     );
 
     setSoldTeam(null);
